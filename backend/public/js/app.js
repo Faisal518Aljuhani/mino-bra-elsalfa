@@ -13,6 +13,20 @@ function getToken() { return localStorage.getItem('token'); }
 function setToken(t) { localStorage.setItem('token', t); }
 function clearToken() { localStorage.removeItem('token'); }
 
+// ===================== شاشة البداية: اختيار الوضع =====================
+$('btn-mode-online').addEventListener('click', () => {
+  hide('view-home');
+  show('view-auth');
+});
+$('btn-mode-local').addEventListener('click', () => {
+  hide('view-home');
+  if (typeof startLocalMode === 'function') startLocalMode();
+});
+$('btn-auth-back-home').addEventListener('click', () => {
+  hide('view-auth');
+  show('view-home');
+});
+
 // ===================== تبويبات تسجيل الدخول / حساب جديد =====================
 $('tab-login').addEventListener('click', () => {
   $('tab-login').classList.add('active');
@@ -98,6 +112,7 @@ $('form-forgot').addEventListener('submit', async (e) => {
 
 // ===================== الدخول للتطبيق بعد تسجيل الدخول =====================
 function enterApp() {
+  hide('view-home');
   hide('view-auth');
   show('view-lobby');
   $('user-badge').textContent = currentUser.username;

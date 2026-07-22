@@ -9,8 +9,9 @@ const { sendVerificationEmail, sendResetEmail } = require('../utils/email');
 
 const router = express.Router();
 
+// تحديد معدل المحاولات لمنع هجمات القوة الغاشمة (brute force)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000, // 15 دقيقة
   max: 10,
   message: { error: 'محاولات كثيرة، حاول بعد شوي' },
   standardHeaders: true,
@@ -28,6 +29,7 @@ function signToken(user) {
   );
 }
 
+// ===== تسجيل حساب جديد =====
 router.post('/register',
   authLimiter,
   body('username').trim().isLength({ min: 3, max: 20 }).matches(/^[a-zA-Z0-9_ء-ي]+$/),
@@ -49,6 +51,8 @@ router.post('/register',
 
       const passwordHash = await bcrypt.hash(password, 12);
 
+      // ملاحظة: تم تعطيل تفعيل البريد الإلكتروني — الحساب يُفعّل مباشرة عند التسجيل
+      // (مناسب لمشروع خاص تشاركه مع أشخاص محددين، بدون الحاجة لإعداد SMTP)
       const result = db.prepare(`
         INSERT INTO users (username, email, password_hash, is_verified)
         VALUES (?, ?, ?, 1)
@@ -62,6 +66,7 @@ router.post('/register',
   }
 );
 
+// ===== تفعيل الحساب عبر رابط البريد =====
 router.get('/verify/:token', (req, res) => {
   const { token } = req.params;
   const user = db.prepare('SELECT * FROM users WHERE verify_token = ?').get(token);
@@ -77,6 +82,7 @@ router.get('/verify/:token', (req, res) => {
   res.send('<div style="font-family:Tahoma;text-align:center;padding:50px;direction:rtl;">✅ تم تفعيل حسابك بنجاح! ارجع للتطبيق وسجل دخولك.</div>');
 });
 
+// ===== تسجيل الدخول =====
 router.post('/login',
   authLimiter,
   body('email').trim().isEmail().normalizeEmail(),
@@ -90,6 +96,7 @@ router.post('/login',
     const { email, password } = req.body;
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 
+    // رسالة عامة موحّدة عشان ما نكشف هل الإيميل موجود أو لا
     const genericError = { error: 'البريد أو كلمة المرور غير صحيحة' };
 
     if (!user) return res.status(401).json(genericError);
@@ -123,14 +130,17 @@ router.post('/login',
   }
 );
 
+// ===== نسيت كلمة المرور =====
 router.post('/forgot-password',
   authLimiter,
   body('email').trim().isEmail().normalizeEmail(),
   async (req, res) => {
+    // ميزة البريد الإلكتروني معطّلة (المشروع بدون SMTP) — استعادة كلمة المرور غير متاحة تلقائياً
     res.json({ message: 'ميزة استعادة كلمة المرور عبر البريد غير مفعّلة حالياً. تواصل مع مسؤول الموقع.' });
   }
 );
 
+// ===== تعيين كلمة مرور جديدة =====
 router.post('/reset-password',
   authLimiter,
   body('token').notEmpty(),

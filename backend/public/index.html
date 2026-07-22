@@ -16,8 +16,17 @@
     <h1>مين برا السالفة؟</h1>
   </div>
 
+  <!-- ===== شاشة البداية: اختيار طريقة اللعب ===== -->
+  <div id="view-home" class="dossier">
+    <h2>وش طريقة اللعب؟</h2>
+    <button class="btn-primary" id="btn-mode-online">🌐 لعب أونلاين (كل واحد بجهازه)</button>
+    <button class="btn-primary" id="btn-mode-local" style="margin-top:10px;">📱 لعب بجهاز واحد (تمرير الجوال)</button>
+    <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد: بدون حساب، تمررون نفس الجوال بينكم.</p>
+  </div>
+
   <!-- ===== شاشة تسجيل الدخول / إنشاء حساب ===== -->
-  <div id="view-auth" class="dossier">
+  <div id="view-auth" class="dossier hidden">
+    <button type="button" class="link-btn" id="btn-auth-back-home">‹ رجوع</button>
     <div class="tabs">
       <button id="tab-login" class="active">تسجيل الدخول</button>
       <button id="tab-register">حساب جديد</button>
@@ -50,6 +59,74 @@
     </form>
 
     <div id="auth-message"></div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: إعداد اللاعبين ===== -->
+  <div id="view-local-setup" class="hidden">
+    <div class="dossier">
+      <button type="button" class="link-btn" id="btn-local-back-home">‹ رجوع</button>
+      <h2>إعداد الجولة <span class="tag">جهاز واحد</span></h2>
+
+      <label>اختر فئة (أو اتركها عشوائية)</label>
+      <select id="local-category-select"><option value="">🎲 عشوائي</option></select>
+
+      <label>أسماء اللاعبين (٣ على الأقل)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="local-player-name" maxlength="20" placeholder="اسم اللاعب" style="flex:1;">
+        <button class="btn-primary" id="btn-local-add-player" style="width:auto;margin-top:0;padding:11px 18px;">+ إضافة</button>
+      </div>
+      <ul class="players-list" id="local-players-list" style="margin-top:14px;"></ul>
+
+      <button class="btn-primary" id="btn-local-start">ابدأ اللعبة</button>
+      <p class="center-note" id="local-setup-note"></p>
+    </div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: كشف الأدوار (تمرير الجوال) ===== -->
+  <div id="view-local-reveal" class="hidden">
+    <div class="dossier">
+      <h2>تمرير الجوال <span class="tag">سري</span></h2>
+      <div id="local-reveal-pass">
+        <p class="center-note" style="font-size:16px;">مرر الجوال لـ<br><b id="local-reveal-name" style="color:var(--amber);font-size:22px;"></b></p>
+        <button class="btn-primary" id="btn-local-reveal-show">اضغط عشان تشوف دورك</button>
+      </div>
+      <div id="local-reveal-card" class="hidden">
+        <div class="secret-card" id="local-secret-card">
+          <div class="role-label" id="local-role-label"></div>
+          <div class="category-name" id="local-category-display"></div>
+          <div class="the-word" id="local-word-display"></div>
+        </div>
+        <button class="btn-primary" id="btn-local-reveal-next">تمام، شفت دوري — التالي</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: شاشة اللعب ===== -->
+  <div id="view-local-play" class="hidden">
+    <div class="dossier">
+      <h2>الأسئلة والنقاش <span class="tag" id="local-play-category"></span></h2>
+      <p class="center-note">اسألوا بعض بذكاء بدون ما تفضحون الكلمة. لما تخلصون، ابدأوا التصويت.</p>
+      <button class="btn-primary" id="btn-local-start-voting">ابدأ التصويت</button>
+    </div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: التصويت ===== -->
+  <div id="view-local-voting" class="hidden">
+    <div class="dossier">
+      <h2>مين برا السالفة برأيكم؟ <span class="tag">تصويت</span></h2>
+      <p class="center-note">اتفقوا سوا على الشخص المتهم واضغطوا على اسمه</p>
+      <div class="vote-grid" id="local-vote-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: النتائج ===== -->
+  <div id="view-local-results" class="hidden">
+    <div class="dossier">
+      <h2>كشف القضية <span class="tag">النتيجة</span></h2>
+      <div id="local-results-content"></div>
+      <button class="btn-primary" id="btn-local-play-again">جولة جديدة (نفس اللاعبين)</button>
+      <button class="btn-ghost" id="btn-local-new-players">لاعبين جدد</button>
+    </div>
   </div>
 
   <!-- ===== شاشة اللوبي (قبل بدء اللعبة) ===== -->
@@ -130,5 +207,6 @@
 </div>
 
 <script src="js/app.js"></script>
+<script src="js/local.js"></script>
 </body>
 </html>
