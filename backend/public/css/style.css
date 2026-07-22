@@ -66,6 +66,18 @@ body {
   padding: 3px 14px;
   letter-spacing: 2px;
 }
+.site-logo {
+  display: block;
+  max-width: 180px;
+  height: auto;
+  margin: 0 auto 14px;
+}
+.masthead .dev-credit {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
 
 /* ===== لوحات / ملفات القضية ===== */
 .dossier {
