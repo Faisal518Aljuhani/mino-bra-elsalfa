@@ -26,6 +26,7 @@
     <li data-nav="online"><span>🌐</span> لعب أونلاين (كل واحد بجهازه)</li>
     <li data-nav="local"><span>📱</span> لعب بجهاز واحد (تمرير الجوال)</li>
     <li data-nav="cf"><span>🧩</span> لعبة العامل المشترك</li>
+    <li data-nav="mafia"><span>🔪</span> لعبة المافيا</li>
   </ul>
 </nav>
 
@@ -43,7 +44,8 @@
     <button class="btn-primary" id="btn-mode-online">🌐 لعب أونلاين (كل واحد بجهازه)</button>
     <button class="btn-primary" id="btn-mode-local" style="margin-top:10px;">📱 لعب بجهاز واحد (تمرير الجوال)</button>
     <button class="btn-primary" id="btn-mode-cf" style="margin-top:10px;">🧩 لعبة العامل المشترك</button>
-    <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد: بدون حساب، تمررون نفس الجوال بينكم. العامل المشترك: لعبة تحدي فردية بدون حساب.</p>
+    <button class="btn-primary" id="btn-mode-mafia" style="margin-top:10px;">🔪 لعبة المافيا (جهاز واحد)</button>
+    <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد والمافيا: بدون حساب، تمررون نفس الجوال بينكم. العامل المشترك: لعبة تحدي فردية بدون حساب.</p>
   </div>
 
   <!-- ===== شاشة تسجيل الدخول / إنشاء حساب ===== -->
@@ -176,6 +178,91 @@
     </div>
   </div>
 
+  <!-- ===== لعبة المافيا: إعداد اللاعبين ===== -->
+  <div id="view-mafia-setup" class="hidden">
+    <div class="dossier">
+      <button type="button" class="link-btn" id="btn-mafia-back-home">‹ رجوع</button>
+      <h2>إعداد لعبة المافيا <span class="tag">جهاز واحد</span></h2>
+
+      <label>أسماء اللاعبين (٥ إلى ٢٠ لاعب)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="mafia-player-name" maxlength="20" placeholder="اسم اللاعب" style="flex:1;">
+        <button class="btn-primary" id="btn-mafia-add-player" style="width:auto;margin-top:0;padding:11px 18px;">+ إضافة</button>
+      </div>
+      <ul class="players-list" id="mafia-players-list" style="margin-top:14px;"></ul>
+
+      <p class="center-note" id="mafia-role-preview"></p>
+      <button class="btn-primary" id="btn-mafia-start">ابدأ اللعبة</button>
+      <p class="center-note" id="mafia-setup-note"></p>
+    </div>
+  </div>
+
+  <!-- ===== لعبة المافيا: كشف الأدوار (تمرير الجوال) ===== -->
+  <div id="view-mafia-reveal" class="hidden">
+    <div class="dossier">
+      <h2>تمرير الجوال <span class="tag">سري</span></h2>
+      <div id="mafia-reveal-pass">
+        <p class="center-note" style="font-size:16px;">مرر الجوال لـ<br><b id="mafia-reveal-name" style="color:var(--amber);font-size:22px;"></b></p>
+        <button class="btn-primary" id="btn-mafia-reveal-show">اضغط عشان تشوف دورك</button>
+      </div>
+      <div id="mafia-reveal-card" class="hidden">
+        <div class="secret-card" id="mafia-secret-card">
+          <div class="role-label" id="mafia-role-label"></div>
+          <div class="the-word" id="mafia-role-name-display"></div>
+        </div>
+        <p class="center-note" id="mafia-role-desc"></p>
+        <p class="center-note" id="mafia-teammates-note"></p>
+        <button class="btn-primary" id="btn-mafia-reveal-next">تمام، شفت دوري — التالي</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== لعبة المافيا: مرحلة الليل ===== -->
+  <div id="view-mafia-night" class="hidden">
+    <div class="dossier">
+      <h2>الليل 🌙 <span class="tag" id="mafia-night-round"></span></h2>
+      <div id="mafia-night-pass">
+        <p class="center-note" style="font-size:16px;" id="mafia-night-pass-text"></p>
+        <button class="btn-primary" id="btn-mafia-night-show">اضغط عشان تشوف</button>
+      </div>
+      <div id="mafia-night-action" class="hidden">
+        <p class="center-note" id="mafia-night-instruction"></p>
+        <div id="mafia-night-choices" style="display:grid;gap:10px;margin-top:16px;"></div>
+        <p class="center-note" id="mafia-night-feedback"></p>
+        <button class="btn-primary hidden" id="btn-mafia-night-next">التالي</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== لعبة المافيا: مرحلة النهار ===== -->
+  <div id="view-mafia-day" class="hidden">
+    <div class="dossier">
+      <h2>النهار ☀️ <span class="tag" id="mafia-day-round"></span></h2>
+      <div id="mafia-day-result"></div>
+      <p class="center-note">ناقشوا اللي صار الليلة وحاولوا تكتشفوا مين المافيا.</p>
+      <button class="btn-primary" id="btn-mafia-start-voting">ابدأ التصويت</button>
+    </div>
+  </div>
+
+  <!-- ===== لعبة المافيا: التصويت ===== -->
+  <div id="view-mafia-voting" class="hidden">
+    <div class="dossier">
+      <h2>مين المافيا برأيكم؟ <span class="tag">تصويت</span></h2>
+      <p class="center-note">اتفقوا سوا على الشخص المشتبه فيه واضغطوا على اسمه</p>
+      <div class="vote-grid" id="mafia-vote-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== لعبة المافيا: نتيجة اللعبة ===== -->
+  <div id="view-mafia-results" class="hidden">
+    <div class="dossier">
+      <h2>نتيجة اللعبة <span class="tag">المافيا</span></h2>
+      <div id="mafia-results-content"></div>
+      <button class="btn-primary" id="btn-mafia-play-again">جولة جديدة (نفس اللاعبين)</button>
+      <button class="btn-ghost" id="btn-mafia-new-players">لاعبين جدد</button>
+    </div>
+  </div>
+
   <!-- ===== شاشة اللوبي (قبل بدء اللعبة) ===== -->
   <div id="view-lobby" class="hidden">
     <div class="dossier">
@@ -256,5 +343,6 @@
 <script src="js/app.js"></script>
 <script src="js/local.js"></script>
 <script src="js/commonfactor.js"></script>
+<script src="js/mafia.js"></script>
 </body>
 </html>
