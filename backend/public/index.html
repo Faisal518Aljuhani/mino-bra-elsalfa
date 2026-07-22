@@ -8,6 +8,27 @@
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
+
+<button id="btn-menu-toggle" class="menu-toggle" aria-label="القائمة" aria-expanded="false">
+  <span></span><span></span><span></span>
+</button>
+
+<div id="menu-overlay" class="menu-overlay"></div>
+
+<nav id="side-menu" class="side-menu">
+  <div class="side-menu-header">
+    <span>القائمة</span>
+    <button type="button" id="btn-menu-close" class="menu-close" aria-label="إغلاق">✕</button>
+  </div>
+  <input type="text" id="menu-search" placeholder="🔍 دور على لعبة...">
+  <ul class="menu-list" id="menu-list">
+    <li data-nav="home"><span>🏠</span> الرئيسية</li>
+    <li data-nav="online"><span>🌐</span> لعب أونلاين (كل واحد بجهازه)</li>
+    <li data-nav="local"><span>📱</span> لعب بجهاز واحد (تمرير الجوال)</li>
+    <li data-nav="cf"><span>🧩</span> لعبة العامل المشترك</li>
+  </ul>
+</nav>
+
 <div class="wrap">
 
   <div class="masthead">
@@ -21,7 +42,8 @@
     <h2>وش طريقة اللعب؟</h2>
     <button class="btn-primary" id="btn-mode-online">🌐 لعب أونلاين (كل واحد بجهازه)</button>
     <button class="btn-primary" id="btn-mode-local" style="margin-top:10px;">📱 لعب بجهاز واحد (تمرير الجوال)</button>
-    <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد: بدون حساب، تمررون نفس الجوال بينكم.</p>
+    <button class="btn-primary" id="btn-mode-cf" style="margin-top:10px;">🧩 لعبة العامل المشترك</button>
+    <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد: بدون حساب، تمررون نفس الجوال بينكم. العامل المشترك: لعبة تحدي فردية بدون حساب.</p>
   </div>
 
   <!-- ===== شاشة تسجيل الدخول / إنشاء حساب ===== -->
@@ -129,6 +151,31 @@
     </div>
   </div>
 
+  <!-- ===== لعبة العامل المشترك ===== -->
+  <div id="view-cf-play" class="hidden">
+    <div class="dossier">
+      <button type="button" class="link-btn" id="btn-cf-back-home">‹ رجوع</button>
+      <h2>العامل المشترك <span class="tag" id="cf-progress"></span></h2>
+      <div class="secret-card" id="cf-items-card">
+        <div class="role-label">وش العامل المشترك؟</div>
+        <div class="the-word" id="cf-items-display" style="font-size:22px;"></div>
+      </div>
+      <div id="cf-choices" style="display:grid;gap:10px;margin-top:16px;"></div>
+      <p class="center-note" id="cf-feedback"></p>
+      <button class="btn-primary hidden" id="btn-cf-next">السؤال التالي</button>
+    </div>
+  </div>
+
+  <!-- ===== نتيجة لعبة العامل المشترك ===== -->
+  <div id="view-cf-results" class="hidden">
+    <div class="dossier">
+      <h2>النتيجة النهائية <span class="tag">العامل المشترك</span></h2>
+      <div id="cf-results-content"></div>
+      <button class="btn-primary" id="btn-cf-restart">العب من جديد</button>
+      <button class="btn-ghost" id="btn-cf-home">الرجوع للرئيسية</button>
+    </div>
+  </div>
+
   <!-- ===== شاشة اللوبي (قبل بدء اللعبة) ===== -->
   <div id="view-lobby" class="hidden">
     <div class="dossier">
@@ -208,5 +255,6 @@
 
 <script src="js/app.js"></script>
 <script src="js/local.js"></script>
+<script src="js/commonfactor.js"></script>
 </body>
 </html>

@@ -22,6 +22,10 @@ $('btn-mode-local').addEventListener('click', () => {
   hide('view-home');
   if (typeof startLocalMode === 'function') startLocalMode();
 });
+$('btn-mode-cf').addEventListener('click', () => {
+  hide('view-home');
+  if (typeof startCommonFactorMode === 'function') startCommonFactorMode();
+});
 $('btn-auth-back-home').addEventListener('click', () => {
   hide('view-auth');
   show('view-home');
@@ -283,6 +287,65 @@ function renderResults(result) {
 
 $('btn-play-again').addEventListener('click', () => {
   socket.emit('play_again', { roomCode: currentRoomCode });
+});
+
+// ===================== القائمة الجانبية (همبرغر) =====================
+const ALL_TOP_VIEWS = [
+  'view-home', 'view-auth',
+  'view-local-setup', 'view-local-reveal', 'view-local-play', 'view-local-voting', 'view-local-results',
+  'view-cf-play', 'view-cf-results',
+  'view-lobby', 'view-playing', 'view-voting', 'view-results'
+];
+
+function hideAllTopViews() {
+  ALL_TOP_VIEWS.forEach(hide);
+}
+
+function navigateTo(target) {
+  hideAllTopViews();
+  if (target === 'home') {
+    show('view-home');
+  } else if (target === 'online') {
+    if (currentUser) { enterApp(); } else { show('view-auth'); }
+  } else if (target === 'local') {
+    if (typeof startLocalMode === 'function') startLocalMode();
+  } else if (target === 'cf') {
+    if (typeof startCommonFactorMode === 'function') startCommonFactorMode();
+  }
+  closeMenu();
+}
+
+function openMenu() {
+  $('side-menu').classList.add('open');
+  $('menu-overlay').classList.add('open');
+  $('btn-menu-toggle').setAttribute('aria-expanded', 'true');
+}
+
+function closeMenu() {
+  $('side-menu').classList.remove('open');
+  $('menu-overlay').classList.remove('open');
+  $('btn-menu-toggle').setAttribute('aria-expanded', 'false');
+  $('menu-search').value = '';
+  document.querySelectorAll('#menu-list li').forEach(li => li.classList.remove('no-match'));
+}
+
+$('btn-menu-toggle').addEventListener('click', () => {
+  if ($('side-menu').classList.contains('open')) closeMenu();
+  else openMenu();
+});
+$('btn-menu-close').addEventListener('click', closeMenu);
+$('menu-overlay').addEventListener('click', closeMenu);
+
+$('menu-search').addEventListener('input', () => {
+  const q = $('menu-search').value.trim();
+  document.querySelectorAll('#menu-list li').forEach(li => {
+    const match = li.textContent.includes(q);
+    li.classList.toggle('no-match', !match);
+  });
+});
+
+document.querySelectorAll('#menu-list li').forEach(li => {
+  li.addEventListener('click', () => navigateTo(li.dataset.nav));
 });
 
 // ===================== استرجاع الجلسة عند فتح الصفحة =====================

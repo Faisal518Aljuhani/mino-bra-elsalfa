@@ -12,6 +12,7 @@ const allowedOrigin = process.env.APP_BASE_URL || '*';
 const authRoutes = require('./routes/auth');
 const setupGameSockets = require('./socket/game');
 const categories = require('./data/categories');
+const commonFactorQuestions = require('./data/common-factor');
 
 const app = express();
 const server = http.createServer(app);
@@ -33,6 +34,9 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 // وضع "جهاز واحد" (تمرير الجهاز) لا يحتاج تسجيل دخول، فقط قائمة الفئات والكلمات كاملة
 app.get('/api/categories', (req, res) => res.json(categories));
+
+// لعبة العامل المشترك — لا تحتاج تسجيل دخول أيضاً
+app.get('/api/common-factor', (req, res) => res.json(commonFactorQuestions));
 
 // ===== Socket.io مع نفس إعدادات CORS =====
 const io = new Server(server, {
