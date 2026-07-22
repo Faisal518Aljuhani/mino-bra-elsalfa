@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مين برا السالفة - نسخة فيصل</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="tape">قضية سرية</div>
+    <div class="eyebrow">لعبة الاستنتاج الاجتماعي</div>
+    <h1>مين برا السالفة؟</h1>
+  </div>
+
+  <!-- ===== شاشة تسجيل الدخول / إنشاء حساب ===== -->
+  <div id="view-auth" class="dossier">
+    <div class="tabs">
+      <button id="tab-login" class="active">تسجيل الدخول</button>
+      <button id="tab-register">حساب جديد</button>
+    </div>
+
+    <form id="form-login">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="login-email" required>
+      <label>كلمة المرور</label>
+      <input type="password" id="login-password" required minlength="8">
+      <button type="submit" class="btn-primary">دخول</button>
+      <button type="button" class="link-btn" id="btn-forgot">نسيت كلمة المرور؟</button>
+    </form>
+
+    <form id="form-register" class="hidden">
+      <label>اسم اللاعب</label>
+      <input type="text" id="reg-username" required minlength="3" maxlength="20">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="reg-email" required>
+      <label>كلمة المرور (8 أحرف فأكثر)</label>
+      <input type="password" id="reg-password" required minlength="8">
+      <button type="submit" class="btn-primary">إنشاء الحساب</button>
+    </form>
+
+    <form id="form-forgot" class="hidden">
+      <label>أدخل بريدك عشان نرسل لك رابط استعادة</label>
+      <input type="email" id="forgot-email" required>
+      <button type="submit" class="btn-primary">إرسال رابط الاستعادة</button>
+      <button type="button" class="link-btn" id="btn-back-login">رجوع لتسجيل الدخول</button>
+    </form>
+
+    <div id="auth-message"></div>
+  </div>
+
+  <!-- ===== شاشة اللوبي (قبل بدء اللعبة) ===== -->
+  <div id="view-lobby" class="hidden">
+    <div class="dossier">
+      <h2>غرفة اللعب <span class="tag" id="user-badge"></span></h2>
+
+      <div id="lobby-choice">
+        <button class="btn-primary" id="btn-create-room">إنشاء غرفة جديدة</button>
+        <div style="text-align:center;color:var(--muted);margin:14px 0;font-size:13px;">— أو —</div>
+        <label>كود الغرفة</label>
+        <input type="text" id="join-code" maxlength="5" placeholder="مثال: AB12X" style="text-transform:uppercase;">
+        <button class="btn-primary" id="btn-join-room">انضمام للغرفة</button>
+      </div>
+
+      <div id="lobby-room" class="hidden">
+        <div class="room-code" id="room-code-display"></div>
+        <p class="center-note">شارك الكود مع أصدقائك عشان ينضمون</p>
+
+        <label>اللاعبون في الغرفة</label>
+        <ul class="players-list" id="players-list"></ul>
+
+        <div id="host-controls" class="hidden">
+          <label>اختر فئة (أو اتركها عشوائية)</label>
+          <select id="category-select"><option value="">🎲 عشوائي</option></select>
+          <button class="btn-primary" id="btn-start-game">ابدأ اللعبة</button>
+        </div>
+        <p id="waiting-note" class="center-note hidden">بانتظار المضيف يبدأ اللعبة...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== شاشة اللعب: عرض الدور والكلمة ===== -->
+  <div id="view-playing" class="hidden">
+    <div class="dossier">
+      <h2>دورك في هذي الجولة <span class="tag">سري</span></h2>
+      <div class="secret-card" id="secret-card">
+        <div class="role-label" id="role-label"></div>
+        <div class="category-name" id="category-display"></div>
+        <div class="the-word" id="word-display"></div>
+      </div>
+      <p class="center-note">اسألوا بعض بذكاء بدون ما تفضحون الكلمة. لما تخلصون الأسئلة، المضيف يبدأ التصويت.</p>
+      <div id="host-voting-control" class="hidden">
+        <button class="btn-primary" id="btn-start-voting">ابدأ التصويت الآن</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== شاشة التصويت ===== -->
+  <div id="view-voting" class="hidden">
+    <div class="dossier">
+      <h2>مين برا السالفة برأيك؟ <span class="tag">تصويت</span></h2>
+      <div class="vote-grid" id="vote-grid"></div>
+      <p class="center-note" id="vote-progress-note"></p>
+    </div>
+  </div>
+
+  <!-- ===== شاشة النتائج ===== -->
+  <div id="view-results" class="hidden">
+    <div class="dossier">
+      <h2>كشف القضية <span class="tag">النتيجة</span></h2>
+      <div id="results-content"></div>
+      <div id="host-again-control" class="hidden">
+        <button class="btn-primary" id="btn-play-again">جولة جديدة</button>
+      </div>
+      <p id="guest-again-note" class="center-note hidden">بانتظار المضيف يبدأ جولة جديدة...</p>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <p>برمجة وتطوير: <strong>Faisal ALjuhani</strong></p>
+    <a href="https://instagram.com/f99oi_" target="_blank" rel="noopener noreferrer" class="footer-ig">
+      📸 تواصل عبر انستقرام
+      <span>@f99oi_</span>
+    </a>
+  </footer>
+
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

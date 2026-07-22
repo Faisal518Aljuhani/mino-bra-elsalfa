@@ -1,0 +1,255 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --bg: #14110F;
+  --panel: #1F1B17;
+  --panel-2: #292320;
+  --line: #3A322B;
+  --amber: #E8A33D;
+  --red: #C1443C;
+  --green: #6B8F5C;
+  --cream: #EDE6DA;
+  --muted: #948C7E;
+  --radius: 4px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(232,163,61,0.08), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, transparent 1px, transparent 2px),
+    var(--bg);
+  color: var(--cream);
+  font-family: 'Cairo', sans-serif;
+  direction: rtl;
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+/* ===== الشارة العلوية ===== */
+.masthead {
+  text-align: center;
+  padding: 24px 0 32px;
+  border-bottom: 2px solid var(--line);
+  margin-bottom: 28px;
+  position: relative;
+}
+.masthead .eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 3px;
+  color: var(--amber);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.masthead h1 {
+  font-size: 34px;
+  font-weight: 800;
+  margin: 6px 0 0;
+  color: var(--cream);
+}
+.masthead .tape {
+  position: absolute;
+  top: -10px; right: 50%;
+  transform: translateX(50%) rotate(-2deg);
+  background: repeating-linear-gradient(45deg, var(--amber), var(--amber) 8px, #1a1512 8px, #1a1512 16px);
+  color: #1a1512;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 14px;
+  letter-spacing: 2px;
+}
+
+/* ===== لوحات / ملفات القضية ===== */
+.dossier {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+.dossier h2 {
+  font-size: 18px;
+  margin: 0 0 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--line);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dossier h2 .tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--panel-2);
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+}
+
+/* ===== الحقول ===== */
+label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+input, select {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 11px 12px;
+  color: var(--cream);
+  font-family: 'Cairo', sans-serif;
+  font-size: 15px;
+  outline: none;
+  transition: border-color .15s;
+}
+input:focus, select:focus { border-color: var(--amber); }
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'Cairo', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 12px 18px;
+  transition: transform .1s, opacity .15s;
+}
+button:active { transform: scale(0.98); }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+.btn-primary { background: var(--amber); color: #1a1512; width: 100%; margin-top: 16px; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); width: 100%; margin-top: 10px; }
+.btn-ghost:hover { color: var(--cream); border-color: var(--muted); }
+.btn-danger { background: var(--red); color: var(--cream); }
+
+.link-btn { background: none; border: none; color: var(--amber); font-size: 13px; padding: 0; text-decoration: underline; width: auto; margin-top: 12px; display: inline-block; }
+
+.error-box { background: rgba(193,68,60,0.15); border: 1px solid var(--red); color: #f2b3ae; padding: 10px 14px; border-radius: var(--radius); font-size: 14px; margin-top: 12px; }
+.success-box { background: rgba(107,143,92,0.15); border: 1px solid var(--green); color: #cfe0c7; padding: 10px 14px; border-radius: var(--radius); font-size: 14px; margin-top: 12px; }
+
+.hidden { display: none !important; }
+
+/* ===== كود الغرفة ===== */
+.room-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 32px;
+  letter-spacing: 8px;
+  text-align: center;
+  color: var(--amber);
+  background: var(--panel-2);
+  border: 1px dashed var(--amber);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin: 10px 0;
+}
+
+/* ===== قائمة اللاعبين ===== */
+.players-list { list-style: none; padding: 0; margin: 0; }
+.players-list li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.players-list li .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.players-list li .host-badge {
+  margin-right: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* ===== بطاقة الكلمة السرية ===== */
+.secret-card {
+  text-align: center;
+  padding: 30px 20px;
+  border-radius: var(--radius);
+  border: 2px solid var(--amber);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  position: relative;
+  overflow: hidden;
+}
+.secret-card.is-spy { border-color: var(--red); }
+.secret-card .role-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.secret-card .category-name { font-size: 15px; color: var(--muted); margin-top: 4px; }
+.secret-card .the-word {
+  font-size: 30px;
+  font-weight: 800;
+  margin: 16px 0 6px;
+  color: var(--cream);
+}
+.secret-card.is-spy .the-word { color: var(--red); }
+
+/* ===== لائحة التصويت ===== */
+.vote-grid { display: grid; gap: 10px; }
+.vote-option {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer;
+}
+.vote-option:hover { border-color: var(--amber); }
+.vote-option.selected { border-color: var(--amber); background: rgba(232,163,61,0.1); }
+
+.center-note { text-align: center; color: var(--muted); font-size: 13px; margin-top: 14px; }
+
+.tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+.tabs button { flex: 1; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+.tabs button.active { background: var(--amber); color: #1a1512; border-color: var(--amber); }
+
+@media (max-width: 480px) {
+  .masthead h1 { font-size: 26px; }
+  .room-code { font-size: 24px; letter-spacing: 4px; }
+}
+
+/* ===== تذييل الصفحة ===== */
+.site-footer {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--line);
+  text-align: center;
+}
+.site-footer p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+.site-footer p strong { color: var(--cream); }
+.footer-ig {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 8px 16px;
+  color: var(--cream);
+  text-decoration: none;
+  font-size: 13px;
+  transition: border-color .15s, transform .1s;
+}
+.footer-ig:hover { border-color: var(--amber); }
+.footer-ig:active { transform: scale(0.97); }
+.footer-ig span { color: var(--amber); font-family: 'JetBrains Mono', monospace; }

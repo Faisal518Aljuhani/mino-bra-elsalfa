@@ -1,0 +1,43 @@
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const cors = require('cors');
+const helmet = require('helmet');
+const { Server } = require('socket.io');
+
+// استضافات مثل Render تعطي رابط HTTPS خاص بها وتمرر PORT تلقائياً عبر متغير بيئة
+const allowedOrigin = process.env.APP_BASE_URL || '*';
+
+const authRoutes = require('./routes/auth');
+const setupGameSockets = require('./socket/game');
+
+const app = express();
+const server = http.createServer(app);
+
+// ===== حماية أساسية =====
+app.use(helmet({
+  contentSecurityPolicy: false // مبسّط للتشغيل المحلي، فعّله بإعدادات مخصصة لو نشرت المشروع لاحقاً
+}));
+app.use(cors({ origin: allowedOrigin }));
+app.use(express.json({ limit: '10kb' })); // يمنع أجسام طلبات ضخمة (DoS بسيط)
+
+// ===== المسارات =====
+app.use('/api/auth', authRoutes);
+
+// ===== تقديم الفرونت إند =====
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/health', (req, res) => res.json({ ok: true }));
+
+// ===== Socket.io مع نفس إعدادات CORS =====
+const io = new Server(server, {
+  cors: { origin: allowedOrigin }
+});
+setupGameSockets(io);
+
+// استضافات مثل Render تحدد رقم المنفذ تلقائياً عبر متغير PORT، لا تغيّره يدوياً هناك
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`✅ السيرفر يشتغل على http://localhost:${PORT}`);
+});
