@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مين برا السالفة - نسخة فيصل</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="tape">قضية سرية</div>
+    <div class="eyebrow">لعبة الاستنتاج الاجتماعي</div>
+    <h1>مين برا السالفة؟</h1>
+  </div>
+
+  <!-- ===== شاشة البداية: اختيار طريقة اللعب ===== -->
+  <div id="view-home" class="dossier">
+    <h2>وش طريقة اللعب؟</h2>
+    <button class="btn-primary" id="btn-mode-online">🌐 لعب أونلاين (كل واحد بجهازه)</button>
+    <button class="btn-primary" id="btn-mode-local" style="margin-top:10px;">📱 لعب بجهاز واحد (تمرير الجوال)</button>
+    <button class="btn-primary" id="btn-mode-cf" style="margin-top:10px;">🧩 لعبة العامل المشترك</button>
+    <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد: بدون حساب، تمررون نفس الجوال بينكم. العامل المشترك: لعبة تحدي فردية بدون حساب.</p>
+  </div>
+
+  <!-- ===== شاشة تسجيل الدخول / إنشاء حساب ===== -->
+  <div id="view-auth" class="dossier hidden">
+    <button type="button" class="link-btn" id="btn-auth-back-home">‹ رجوع</button>
+    <div class="tabs">
+      <button id="tab-login" class="active">تسجيل الدخول</button>
+      <button id="tab-register">حساب جديد</button>
+    </div>
+
+    <form id="form-login">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="login-email" required>
+      <label>كلمة المرور</label>
+      <input type="password" id="login-password" required minlength="8">
+      <button type="submit" class="btn-primary">دخول</button>
+      <button type="button" class="link-btn" id="btn-forgot">نسيت كلمة المرور؟</button>
+    </form>
+
+    <form id="form-register" class="hidden">
+      <label>اسم اللاعب</label>
+      <input type="text" id="reg-username" required minlength="3" maxlength="20">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="reg-email" required>
+      <label>كلمة المرور (8 أحرف فأكثر)</label>
+      <input type="password" id="reg-password" required minlength="8">
+      <button type="submit" class="btn-primary">إنشاء الحساب</button>
+    </form>
+
+    <form id="form-forgot" class="hidden">
+      <label>أدخل بريدك عشان نرسل لك رابط استعادة</label>
+      <input type="email" id="forgot-email" required>
+      <button type="submit" class="btn-primary">إرسال رابط الاستعادة</button>
+      <button type="button" class="link-btn" id="btn-back-login">رجوع لتسجيل الدخول</button>
+    </form>
+
+    <div id="auth-message"></div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: إعداد اللاعبين ===== -->
+  <div id="view-local-setup" class="hidden">
+    <div class="dossier">
+      <button type="button" class="link-btn" id="btn-local-back-home">‹ رجوع</button>
+      <h2>إعداد الجولة <span class="tag">جهاز واحد</span></h2>
+
+      <label>اختر فئة (أو اتركها عشوائية)</label>
+      <select id="local-category-select"><option value="">🎲 عشوائي</option></select>
+
+      <label>أسماء اللاعبين (٣ على الأقل)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="local-player-name" maxlength="20" placeholder="اسم اللاعب" style="flex:1;">
+        <button class="btn-primary" id="btn-local-add-player" style="width:auto;margin-top:0;padding:11px 18px;">+ إضافة</button>
+      </div>
+      <ul class="players-list" id="local-players-list" style="margin-top:14px;"></ul>
+
+      <button class="btn-primary" id="btn-local-start">ابدأ اللعبة</button>
+      <p class="center-note" id="local-setup-note"></p>
+    </div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: كشف الأدوار (تمرير الجوال) ===== -->
+  <div id="view-local-reveal" class="hidden">
+    <div class="dossier">
+      <h2>تمرير الجوال <span class="tag">سري</span></h2>
+      <div id="local-reveal-pass">
+        <p class="center-note" style="font-size:16px;">مرر الجوال لـ<br><b id="local-reveal-name" style="color:var(--amber);font-size:22px;"></b></p>
+        <button class="btn-primary" id="btn-local-reveal-show">اضغط عشان تشوف دورك</button>
+      </div>
+      <div id="local-reveal-card" class="hidden">
+        <div class="secret-card" id="local-secret-card">
+          <div class="role-label" id="local-role-label"></div>
+          <div class="category-name" id="local-category-display"></div>
+          <div class="the-word" id="local-word-display"></div>
+        </div>
+        <button class="btn-primary" id="btn-local-reveal-next">تمام، شفت دوري — التالي</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: شاشة اللعب ===== -->
+  <div id="view-local-play" class="hidden">
+    <div class="dossier">
+      <h2>الأسئلة والنقاش <span class="tag" id="local-play-category"></span></h2>
+      <p class="center-note">اسألوا بعض بذكاء بدون ما تفضحون الكلمة. لما تخلصون، ابدأوا التصويت.</p>
+      <button class="btn-primary" id="btn-local-start-voting">ابدأ التصويت</button>
+    </div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: التصويت ===== -->
+  <div id="view-local-voting" class="hidden">
+    <div class="dossier">
+      <h2>مين برا السالفة برأيكم؟ <span class="tag">تصويت</span></h2>
+      <p class="center-note">اتفقوا سوا على الشخص المتهم واضغطوا على اسمه</p>
+      <div class="vote-grid" id="local-vote-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== وضع جهاز واحد: النتائج ===== -->
+  <div id="view-local-results" class="hidden">
+    <div class="dossier">
+      <h2>كشف القضية <span class="tag">النتيجة</span></h2>
+      <div id="local-results-content"></div>
+      <button class="btn-primary" id="btn-local-play-again">جولة جديدة (نفس اللاعبين)</button>
+      <button class="btn-ghost" id="btn-local-new-players">لاعبين جدد</button>
+    </div>
+  </div>
+
+  <!-- ===== لعبة العامل المشترك ===== -->
+  <div id="view-cf-play" class="hidden">
+    <div class="dossier">
+      <button type="button" class="link-btn" id="btn-cf-back-home">‹ رجوع</button>
+      <h2>العامل المشترك <span class="tag" id="cf-progress"></span></h2>
+      <div class="secret-card" id="cf-items-card">
+        <div class="role-label">وش العامل المشترك؟</div>
+        <div class="the-word" id="cf-items-display" style="font-size:22px;"></div>
+      </div>
+      <div id="cf-choices" style="display:grid;gap:10px;margin-top:16px;"></div>
+      <p class="center-note" id="cf-feedback"></p>
+      <button class="btn-primary hidden" id="btn-cf-next">السؤال التالي</button>
+    </div>
+  </div>
+
+  <!-- ===== نتيجة لعبة العامل المشترك ===== -->
+  <div id="view-cf-results" class="hidden">
+    <div class="dossier">
+      <h2>النتيجة النهائية <span class="tag">العامل المشترك</span></h2>
+      <div id="cf-results-content"></div>
+      <button class="btn-primary" id="btn-cf-restart">العب من جديد</button>
+      <button class="btn-ghost" id="btn-cf-home">الرجوع للرئيسية</button>
+    </div>
+  </div>
+
+  <!-- ===== شاشة اللوبي (قبل بدء اللعبة) ===== -->
+  <div id="view-lobby" class="hidden">
+    <div class="dossier">
+      <h2>غرفة اللعب <span class="tag" id="user-badge"></span></h2>
+
+      <div id="lobby-choice">
+        <button class="btn-primary" id="btn-create-room">إنشاء غرفة جديدة</button>
+        <div style="text-align:center;color:var(--muted);margin:14px 0;font-size:13px;">— أو —</div>
+        <label>كود الغرفة</label>
+        <input type="text" id="join-code" maxlength="5" placeholder="مثال: AB12X" style="text-transform:uppercase;">
+        <button class="btn-primary" id="btn-join-room">انضمام للغرفة</button>
+      </div>
+
+      <div id="lobby-room" class="hidden">
+        <div class="room-code" id="room-code-display"></div>
+        <p class="center-note">شارك الكود مع أصدقائك عشان ينضمون</p>
+
+        <label>اللاعبون في الغرفة</label>
+        <ul class="players-list" id="players-list"></ul>
+
+        <div id="host-controls" class="hidden">
+          <label>اختر فئة (أو اتركها عشوائية)</label>
+          <select id="category-select"><option value="">🎲 عشوائي</option></select>
+          <button class="btn-primary" id="btn-start-game">ابدأ اللعبة</button>
+        </div>
+        <p id="waiting-note" class="center-note hidden">بانتظار المضيف يبدأ اللعبة...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== شاشة اللعب: عرض الدور والكلمة ===== -->
+  <div id="view-playing" class="hidden">
+    <div class="dossier">
+      <h2>دورك في هذي الجولة <span class="tag">سري</span></h2>
+      <div class="secret-card" id="secret-card">
+        <div class="role-label" id="role-label"></div>
+        <div class="category-name" id="category-display"></div>
+        <div class="the-word" id="word-display"></div>
+      </div>
+      <p class="center-note">اسألوا بعض بذكاء بدون ما تفضحون الكلمة. لما تخلصون الأسئلة، المضيف يبدأ التصويت.</p>
+      <div id="host-voting-control" class="hidden">
+        <button class="btn-primary" id="btn-start-voting">ابدأ التصويت الآن</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== شاشة التصويت ===== -->
+  <div id="view-voting" class="hidden">
+    <div class="dossier">
+      <h2>مين برا السالفة برأيك؟ <span class="tag">تصويت</span></h2>
+      <div class="vote-grid" id="vote-grid"></div>
+      <p class="center-note" id="vote-progress-note"></p>
+    </div>
+  </div>
+
+  <!-- ===== شاشة النتائج ===== -->
+  <div id="view-results" class="hidden">
+    <div class="dossier">
+      <h2>كشف القضية <span class="tag">النتيجة</span></h2>
+      <div id="results-content"></div>
+      <div id="host-again-control" class="hidden">
+        <button class="btn-primary" id="btn-play-again">جولة جديدة</button>
+      </div>
+      <p id="guest-again-note" class="center-note hidden">بانتظار المضيف يبدأ جولة جديدة...</p>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <p>برمجة وتطوير: <strong>Faisal ALjuhani</strong></p>
+    <a href="https://instagram.com/f99oi_" target="_blank" rel="noopener noreferrer" class="footer-ig">
+      📸 تواصل عبر انستقرام
+      <span>@f99oi_</span>
+    </a>
+  </footer>
+
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/local.js"></script>
+<script src="js/commonfactor.js"></script>
+</body>
+</html>
