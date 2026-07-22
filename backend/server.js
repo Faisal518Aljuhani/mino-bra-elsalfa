@@ -11,8 +11,10 @@ const allowedOrigin = process.env.APP_BASE_URL || '*';
 
 const authRoutes = require('./routes/auth');
 const setupGameSockets = require('./socket/game');
+const setupLettersGameSockets = require('./socket/lettersGame');
 const categories = require('./data/categories');
 const commonFactorQuestions = require('./data/common-factor');
+const lettersCategories = require('./data/letters-categories');
 
 const app = express();
 const server = http.createServer(app);
@@ -38,11 +40,15 @@ app.get('/api/categories', (req, res) => res.json(categories));
 // لعبة العامل المشترك — لا تحتاج تسجيل دخول أيضاً
 app.get('/api/common-factor', (req, res) => res.json(commonFactorQuestions));
 
+// لعبة حرف اسم حيوان نبات جماد بلاد (وضع جهاز واحد) — لا تحتاج تسجيل دخول
+app.get('/api/letters-categories', (req, res) => res.json(lettersCategories));
+
 // ===== Socket.io مع نفس إعدادات CORS =====
 const io = new Server(server, {
   cors: { origin: allowedOrigin }
 });
 setupGameSockets(io);
+setupLettersGameSockets(io);
 
 // استضافات مثل Render تحدد رقم المنفذ تلقائياً عبر متغير PORT، لا تغيّره يدوياً هناك
 const PORT = process.env.PORT || 3000;

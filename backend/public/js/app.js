@@ -122,9 +122,17 @@ $('form-forgot').addEventListener('submit', async (e) => {
 function enterApp() {
   hide('view-home');
   hide('view-auth');
+  connectSocket();
+
+  // لو المستخدم كان يبي يدخل لعبة الحروف أونلاين قبل ما يسجل دخوله، نوجهه لها مباشرة
+  if (typeof lgPendingOnline !== 'undefined' && lgPendingOnline) {
+    lgPendingOnline = false;
+    if (typeof lgEnterOnlineLobby === 'function') lgEnterOnlineLobby();
+    return;
+  }
+
   show('view-lobby');
   $('user-badge').textContent = currentUser.username;
-  connectSocket();
 }
 
 function connectSocket() {
@@ -184,6 +192,8 @@ function connectSocket() {
       sel.appendChild(opt);
     });
   });
+
+  if (typeof registerLettersSocketHandlers === 'function') registerLettersSocketHandlers();
 }
 
 function getMyId() {
@@ -299,7 +309,9 @@ const ALL_TOP_VIEWS = [
   'view-local-setup', 'view-local-reveal', 'view-local-play', 'view-local-voting', 'view-local-results',
   'view-cf-play', 'view-cf-results',
   'view-mafia-setup', 'view-mafia-reveal', 'view-mafia-night', 'view-mafia-day', 'view-mafia-voting', 'view-mafia-results',
-  'view-lobby', 'view-playing', 'view-voting', 'view-results'
+  'view-lobby', 'view-playing', 'view-voting', 'view-results',
+  'view-letters-local-setup', 'view-letters-local-pass', 'view-letters-local-turn', 'view-letters-local-results', 'view-letters-local-gameover',
+  'view-letters-lobby', 'view-letters-play', 'view-letters-results', 'view-letters-gameover'
 ];
 
 function hideAllTopViews() {
@@ -318,6 +330,10 @@ function navigateTo(target) {
     if (typeof startCommonFactorMode === 'function') startCommonFactorMode();
   } else if (target === 'mafia') {
     if (typeof startMafiaMode === 'function') startMafiaMode();
+  } else if (target === 'letters-online') {
+    if (typeof startLettersOnlineMode === 'function') startLettersOnlineMode();
+  } else if (target === 'letters-local') {
+    if (typeof startLettersLocalMode === 'function') startLettersLocalMode();
   }
   closeMenu();
 }

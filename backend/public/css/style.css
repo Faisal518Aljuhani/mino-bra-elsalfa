@@ -366,3 +366,46 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .footer-ig:hover { border-color: var(--amber); }
 .footer-ig:active { transform: scale(0.97); }
 .footer-ig span { color: var(--amber); font-family: 'JetBrains Mono', monospace; }
+
+/* ===== لعبة حرف اسم حيوان نبات جماد بلاد ===== */
+.lg-timer {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 44px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--amber);
+  margin: 6px 0 18px;
+}
+.lg-timer.low { color: var(--red); }
+
+.lg-columns-picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+.lg-chip {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--panel-2);
+  transition: border-color .15s, color .15s;
+  user-select: none;
+}
+.lg-chip:hover { border-color: var(--amber); }
+.lg-chip.active { border-color: var(--amber); color: var(--amber); background: rgba(232,163,61,0.1); }
+.lg-chip.lg-chip-disabled { cursor: default; opacity: .75; }
+
+.lg-input-row { margin-bottom: 14px; }
+.lg-input-row label { margin: 0 0 6px; }
+
+.lg-score-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+.lg-score-table th, .lg-score-table td {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: center;
+}
+.lg-score-table th { background: var(--panel-2); color: var(--cream); font-weight: 600; }
+.lg-score-table td div:first-child { color: var(--cream); margin-bottom: 2px; }
+
+.lg-pt-10 { color: var(--green); font-weight: 700; }
+.lg-pt-5 { color: var(--amber); font-weight: 700; }
+.lg-pt-0 { color: var(--red); font-weight: 700; }

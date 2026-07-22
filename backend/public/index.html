@@ -27,6 +27,8 @@
     <li data-nav="local"><span>📱</span> لعب بجهاز واحد (تمرير الجوال)</li>
     <li data-nav="cf"><span>🧩</span> لعبة العامل المشترك</li>
     <li data-nav="mafia"><span>🔪</span> لعبة المافيا</li>
+    <li data-nav="letters-online"><span>🔤</span> حرف اسم حيوان (أونلاين)</li>
+    <li data-nav="letters-local"><span>🔤</span> حرف اسم حيوان (جهاز واحد)</li>
   </ul>
 </nav>
 
@@ -47,6 +49,8 @@
     <button class="btn-primary" id="btn-mode-local" style="margin-top:10px;">📱 لعب بجهاز واحد (تمرير الجوال)</button>
     <button class="btn-primary" id="btn-mode-cf" style="margin-top:10px;">🧩 لعبة العامل المشترك</button>
     <button class="btn-primary" id="btn-mode-mafia" style="margin-top:10px;">🔪 لعبة المافيا (جهاز واحد)</button>
+    <button class="btn-primary" id="btn-mode-letters-online" style="margin-top:10px;">🔤 حرف اسم حيوان (أونلاين)</button>
+    <button class="btn-primary" id="btn-mode-letters-local" style="margin-top:10px;">🔤 حرف اسم حيوان (جهاز واحد)</button>
     <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد والمافيا: بدون حساب، تمررون نفس الجوال بينكم. العامل المشترك: لعبة تحدي فردية بدون حساب.</p>
   </div>
 
@@ -332,6 +336,134 @@
     </div>
   </div>
 
+  <!-- ===== حرف اسم حيوان: جهاز واحد — إعداد ===== -->
+  <div id="view-letters-local-setup" class="hidden">
+    <div class="dossier">
+      <button type="button" class="link-btn" id="btn-lg-local-back-home">‹ رجوع</button>
+      <h2>إعداد الجولة <span class="tag">جهاز واحد</span></h2>
+
+      <label>الخانات (٣ على الأقل)</label>
+      <div class="lg-columns-picker" id="lg-local-columns-list"></div>
+
+      <label>أسماء اللاعبين (لاعبين اثنين على الأقل)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="lg-local-player-name" maxlength="20" placeholder="اسم اللاعب" style="flex:1;">
+        <button class="btn-primary" id="btn-lg-local-add-player" style="width:auto;margin-top:0;padding:11px 18px;">+ إضافة</button>
+      </div>
+      <ul class="players-list" id="lg-local-players-list" style="margin-top:14px;"></ul>
+
+      <button class="btn-primary" id="btn-lg-local-start">ابدأ الجولة</button>
+      <p class="center-note" id="lg-local-setup-note"></p>
+    </div>
+  </div>
+
+  <!-- ===== حرف اسم حيوان: جهاز واحد — تمرير الجهاز بين اللاعبين ===== -->
+  <div id="view-letters-local-pass" class="hidden">
+    <div class="dossier">
+      <h2>تمرير الجهاز <span class="tag">دورك</span></h2>
+      <p class="center-note" style="font-size:16px;">مرر الجهاز لـ<br><b id="lg-local-pass-name" style="color:var(--amber);font-size:22px;"></b></p>
+      <p class="center-note" id="lg-local-pass-columns"></p>
+      <button class="btn-primary" id="btn-lg-local-pass-start">ابدأ دوري (دقيقة ونص)</button>
+    </div>
+  </div>
+
+  <!-- ===== حرف اسم حيوان: جهاز واحد — شاشة الكتابة ===== -->
+  <div id="view-letters-local-turn" class="hidden">
+    <div class="dossier">
+      <h2 id="lg-local-turn-letter">الحرف</h2>
+      <div class="lg-timer" id="lg-local-turn-timer">1:30</div>
+      <div id="lg-local-turn-inputs"></div>
+      <button class="btn-primary" id="btn-lg-local-done">تم ✅</button>
+    </div>
+  </div>
+
+  <!-- ===== حرف اسم حيوان: جهاز واحد — نتيجة الجولة ===== -->
+  <div id="view-letters-local-results" class="hidden">
+    <div class="dossier">
+      <h2>نتيجة الجولة <span class="tag">مراجعة</span></h2>
+      <div id="lg-local-results-table"></div>
+      <div id="lg-local-scoreboard"></div>
+      <button class="btn-primary" id="btn-lg-local-next-round">الجولة التالية</button>
+      <button class="btn-ghost" id="btn-lg-local-end-game">إنهاء اللعبة وإعلان الفائز</button>
+    </div>
+  </div>
+
+  <!-- ===== حرف اسم حيوان: جهاز واحد — نهاية اللعبة ===== -->
+  <div id="view-letters-local-gameover" class="hidden">
+    <div class="dossier">
+      <h2>نتيجة اللعبة النهائية <span class="tag">حرف اسم حيوان</span></h2>
+      <div id="lg-local-gameover-content"></div>
+      <button class="btn-primary" id="btn-lg-local-restart">لاعبين جدد</button>
+      <button class="btn-ghost" id="btn-lg-local-home">الرجوع للرئيسية</button>
+    </div>
+  </div>
+
+  <!-- ===== حرف اسم حيوان: أونلاين — اللوبي ===== -->
+  <div id="view-letters-lobby" class="hidden">
+    <div class="dossier">
+      <button type="button" class="link-btn" id="btn-lg-lobby-back-home">‹ رجوع</button>
+      <h2>غرفة حرف اسم حيوان <span class="tag" id="lg-user-badge"></span></h2>
+
+      <div id="lg-lobby-choice">
+        <button class="btn-primary" id="btn-lg-create-room">إنشاء غرفة جديدة</button>
+        <div style="text-align:center;color:var(--muted);margin:14px 0;font-size:13px;">— أو —</div>
+        <label>كود الغرفة</label>
+        <input type="text" id="lg-join-code" maxlength="5" placeholder="مثال: حAB2X" style="text-transform:uppercase;">
+        <button class="btn-primary" id="btn-lg-join-room">انضمام للغرفة</button>
+      </div>
+
+      <div id="lg-lobby-room" class="hidden">
+        <div class="room-code" id="lg-room-code-display"></div>
+        <p class="center-note">شارك الكود مع أصدقائك عشان ينضمون</p>
+
+        <label>اللاعبون في الغرفة</label>
+        <ul class="players-list" id="lg-players-list"></ul>
+
+        <div id="lg-host-controls" class="hidden">
+          <label>الخانات (٣ على الأقل)</label>
+          <div class="lg-columns-picker" id="lg-columns-list"></div>
+          <button class="btn-primary" id="btn-lg-start-round">ابدأ الجولة</button>
+        </div>
+        <p id="lg-waiting-note" class="center-note hidden">بانتظار المضيف يبدأ الجولة...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== حرف اسم حيوان: أونلاين — شاشة اللعب ===== -->
+  <div id="view-letters-play" class="hidden">
+    <div class="dossier">
+      <h2 id="lg-play-letter">الحرف</h2>
+      <div class="lg-timer" id="lg-play-timer">1:30</div>
+      <div id="lg-play-inputs"></div>
+      <button class="btn-primary" id="btn-lg-done">تم ✅</button>
+      <p class="center-note" id="lg-progress-note"></p>
+    </div>
+  </div>
+
+  <!-- ===== حرف اسم حيوان: أونلاين — نتيجة الجولة ===== -->
+  <div id="view-letters-results" class="hidden">
+    <div class="dossier">
+      <h2>نتيجة الجولة <span class="tag">مراجعة</span></h2>
+      <div id="lg-results-table"></div>
+      <div id="lg-scoreboard"></div>
+      <div id="lg-host-round-controls" class="hidden">
+        <button class="btn-primary" id="btn-lg-next-round">الجولة التالية</button>
+        <button class="btn-ghost" id="btn-lg-end-game">إنهاء اللعبة وإعلان الفائز</button>
+      </div>
+      <p id="lg-guest-round-note" class="center-note hidden">بانتظار المضيف...</p>
+    </div>
+  </div>
+
+  <!-- ===== حرف اسم حيوان: أونلاين — نهاية اللعبة ===== -->
+  <div id="view-letters-gameover" class="hidden">
+    <div class="dossier">
+      <h2>نتيجة اللعبة النهائية <span class="tag">حرف اسم حيوان</span></h2>
+      <div id="lg-gameover-content"></div>
+      <button class="btn-primary" id="btn-lg-play-new">غرفة جديدة</button>
+      <button class="btn-ghost" id="btn-lg-home">الرجوع للرئيسية</button>
+    </div>
+  </div>
+
   <footer class="site-footer">
     <p>برمجة وتطوير: <strong>Faisal ALjuhani</strong></p>
     <a href="https://instagram.com/f99oi_" target="_blank" rel="noopener noreferrer" class="footer-ig">
@@ -346,5 +478,6 @@
 <script src="js/local.js"></script>
 <script src="js/commonfactor.js"></script>
 <script src="js/mafia.js"></script>
+<script src="js/letters.js"></script>
 </body>
 </html>
