@@ -219,6 +219,52 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .tabs button { flex: 1; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
 .tabs button.active { background: var(--amber); color: #1a1512; border-color: var(--amber); }
 
+/* ===== متجر لمّة كوين ===== */
+.shop-wallet-bar {
+  display: flex; align-items: center; gap: 8px; justify-content: center;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 14px; font-size: 18px; margin-bottom: 6px;
+}
+.shop-wallet-bar strong { color: var(--amber); font-family: 'JetBrains Mono', monospace; }
+.shop-sub-status { margin-top: 8px; }
+.shop-section-title { color: var(--amber); font-size: 15px; margin: 22px 0 10px; }
+.shop-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.shop-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px; text-align: center;
+}
+.shop-card-wide { grid-column: 1 / -1; }
+.shop-card-title { font-size: 20px; font-weight: 800; color: var(--cream); }
+.shop-card-note { font-size: 12px; color: var(--muted); margin: 4px 0 10px; }
+.shop-buy-btn { width: 100%; margin: 0; }
+.shop-buy-btn:disabled { opacity: 0.6; cursor: default; }
+.shop-unlock-list { display: flex; flex-direction: column; gap: 8px; }
+.shop-unlock-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 14px; font-size: 14px;
+}
+.shop-unlock-row .shop-buy-btn { width: auto; min-width: 90px; }
+#btn-shop-unlock-all-categories, #btn-shop-unlock-all-cases { margin-top: 10px; }
+
+#shop-cart-section { margin: 18px 0 22px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.shop-cart-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius);
+  margin-bottom: 6px; font-size: 13px;
+}
+.shop-cart-item button { background: none; border: none; color: var(--red); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.shop-coupon-row { display: flex; gap: 8px; margin-top: 4px; }
+.shop-coupon-row input { flex: 1; margin-bottom: 0; }
+.shop-coupon-row button { width: auto; margin: 0; white-space: nowrap; }
+.shop-cart-totals { margin-top: 10px; font-size: 14px; }
+.shop-cart-totals .discount-line { color: var(--green); }
+.shop-cart-empty { color: var(--muted); font-size: 13px; }
+
+@media (max-width: 480px) {
+  .shop-cards { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 480px) {
   .masthead h1 { font-size: 26px; }
   .room-code { font-size: 24px; letter-spacing: 4px; }
@@ -460,3 +506,14 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .lg-pt-10 { color: var(--green); font-weight: 700; }
 .lg-pt-5 { color: var(--amber); font-weight: 700; }
 .lg-pt-0 { color: var(--red); font-weight: 700; }
+
+/* ===== إعلانات AdSense ===== */
+.ad-slot{
+  max-width: 728px;
+  margin: 14px auto;
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
