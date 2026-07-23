@@ -120,6 +120,7 @@ label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px
       <button data-tab="commonfactor">العامل المشترك</button>
       <button data-tab="letters">خانات لعبة الحروف</button>
       <button data-tab="detective">قصة جنائية</button>
+      <button data-tab="shop">🪙 المتجر</button>
       <button data-tab="admins">المشرفين</button>
     </div>
 
@@ -131,6 +132,9 @@ label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px
         <h2>إضافة قسم جديد</h2>
         <form id="addCategoryForm" class="row">
           <input type="text" id="newCategoryName" placeholder="اسم القسم (مثال: أدوات مكتبية)" required>
+          <label style="display:flex;align-items:center;gap:6px;width:auto;white-space:nowrap;margin:0;">
+            <input type="checkbox" id="newCategoryFree" style="width:auto;margin:0;"> مجانية
+          </label>
           <button type="submit" class="btn-primary">إضافة</button>
         </form>
       </div>
@@ -202,6 +206,24 @@ label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px
         </form>
       </div>
       <div id="casesList"></div>
+    </div>
+
+    <!-- ===== تبويب: المتجر ===== -->
+    <div id="tab-shop" class="tab-panel hidden">
+      <div class="card">
+        <h2>بحث عن مستخدم</h2>
+        <div class="row">
+          <input type="text" id="shopUserSearch" placeholder="اسم المستخدم أو البريد...">
+          <button class="btn-primary" id="btnShopSearch" style="width:auto;">بحث</button>
+        </div>
+        <p class="muted">اتركه فاضي وابحث لعرض آخر 20 مستخدم مسجلين.</p>
+      </div>
+      <div id="shopUsersList"></div>
+
+      <div class="card">
+        <h2>سجل آخر 50 عملية دفع</h2>
+        <div id="shopPaymentsList"><p class="muted">جاري التحميل...</p></div>
+      </div>
     </div>
 
     <!-- ===== تبويب: المشرفين ===== -->
