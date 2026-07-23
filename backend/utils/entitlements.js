@@ -8,20 +8,20 @@ function nowSeconds() {
   return Math.floor(Date.now() / 1000);
 }
 
-function ensureWallet(userId) {
-  db.prepare('INSERT OR IGNORE INTO wallets (user_id, coins) VALUES (?, 0)').run(userId);
+async function ensureWallet(userId) {
+  await db.prepare('INSERT OR IGNORE INTO wallets (user_id, coins) VALUES (?, 0)').run(userId);
   return db.prepare('SELECT * FROM wallets WHERE user_id = ?').get(userId);
 }
 
-function getSubscription(userId) {
-  const sub = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(userId);
+async function getSubscription(userId) {
+  const sub = await db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(userId);
   if (!sub) return null;
   const active = sub.status === 'active' && sub.current_period_end && sub.current_period_end > nowSeconds();
   return { ...sub, active };
 }
 
 // يرجع كل صلاحيات المستخدم بضربة وحدة (يستخدم لتصفية الفئات/القضايا وحماية المافيا)
-function getUserAccess(userId) {
+async function getUserAccess(userId) {
   if (!userId) {
     return {
       subscriptionActive: false,
@@ -34,10 +34,10 @@ function getUserAccess(userId) {
     };
   }
 
-  const sub = getSubscription(userId);
+  const sub = await getSubscription(userId);
   const subscriptionActive = !!(sub && sub.active);
 
-  const rows = db.prepare('SELECT item_type, item_id FROM unlocks WHERE user_id = ?').all(userId);
+  const rows = await db.prepare('SELECT item_type, item_id FROM unlocks WHERE user_id = ?').all(userId);
 
   const access = {
     subscriptionActive,
