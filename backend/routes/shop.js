@@ -4,7 +4,7 @@ const db = require('../db');
 const { requireAuth } = require('../utils/authMiddleware');
 const { ensureWallet, getSubscription, getUserAccess, nowSeconds } = require('../utils/entitlements');
 const { COIN_PACKAGES, PRICES, SUBSCRIPTION, findPackage } = require('../data/shop-config');
-const { createInvoice } = require('../utils/moyasar');
+const { createInvoice, getInvoice } = require('../utils/moyasar');
 const { validateCoupon, computeDiscount, redeemCoupon } = require('../utils/coupons');
 
 const router = express.Router();
@@ -157,14 +157,6 @@ router.post('/checkout', requireAuth, checkoutLimiter, async (req, res) => {
 router.post('/webhook', async (req, res) => {
   const payload = req.body || {};
 
-  // تحقق من التوكن السري عشان نتأكد إن الطلب فعلاً من Moyasar
-  if (!process.env.MOYASAR_WEBHOOK_SECRET || payload.secret_token !== process.env.MOYASAR_WEBHOOK_SECRET) {
-    console.warn('🔔 webhook مرفوض: توكن سري غير متطابق. المستلم:', payload.secret_token, '| المتوقع مضبوط:', !!process.env.MOYASAR_WEBHOOK_SECRET);
-    return res.status(401).json({ error: 'توكن غير صحيح' });
-  }
-
-  console.log('🔔 webhook مقبول، نوع الحدث:', payload.type);
-
   // نرد 2xx بسرعة دائماً (موصى به من توثيق Moyasar) حتى لو الحدث مو اللي نهتم فيه
   res.status(200).json({ received: true });
 
@@ -176,6 +168,13 @@ router.post('/webhook', async (req, res) => {
     const row = await db.prepare('SELECT * FROM payments WHERE moyasar_invoice_id = ?').get(payment.invoice_id);
     if (!row) return console.warn('🔔 استلمنا webhook لفاتورة مو موجودة عندنا:', payment.invoice_id);
     if (row.status === 'paid') return console.log('🔔 هذي الفاتورة اتعالجت من قبل (idempotency):', payment.invoice_id);
+
+    // تحقق حقيقي: نسأل Moyasar نفسها (بمفتاحنا السري) هل الفاتورة فعلاً مدفوعة،
+    // بدل ما نثق ببيانات الإشعار القادمة عبر الشبكة مباشرة (أضمن من فحص secret_token اللي Moyasar ما يرسله أصلاً بفواتير الـ Invoices API)
+    const verifiedInvoice = await getInvoice(payment.invoice_id);
+    if (verifiedInvoice.status !== 'paid') {
+      return console.warn('🔔 Moyasar يقول الفاتورة مو مدفوعة فعلياً، تجاهلنا الإشعار:', payment.invoice_id, verifiedInvoice.status);
+    }
 
     await db.prepare(`UPDATE payments SET status = 'paid', updated_at = strftime('%s','now') WHERE id = ?`).run(row.id);
 
