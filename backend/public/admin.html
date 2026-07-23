@@ -3,635 +3,250 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>لمّة - نسخة فيصل</title>
-<link rel="stylesheet" href="css/style.css">
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<meta name="robots" content="noindex, nofollow">
+<title>لوحة تحكم المشرف - لمّة</title>
+<link rel="icon" href="img/logo.png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
-<!-- Google AdSense: رقم الناشر معبّى (ca-pub-8887829035671460) -->
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8887829035671460" crossorigin="anonymous"></script>
+:root {
+  --bg: #14110F;
+  --panel: #1F1B17;
+  --panel-2: #292320;
+  --line: #3A322B;
+  --amber: #E8A33D;
+  --red: #C1443C;
+  --green: #6B8F5C;
+  --cream: #EDE6DA;
+  --muted: #948C7E;
+  --radius: 4px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh;
+  background: radial-gradient(ellipse at 50% -10%, rgba(232,163,61,0.08), transparent 60%), var(--bg);
+  color: var(--cream); font-family: 'Cairo', sans-serif; direction: rtl;
+}
+.wrap { max-width: 920px; margin: 0 auto; padding: 28px 18px 80px; }
+h1 { font-size: 24px; font-weight: 800; margin: 0; }
+h2 { font-size: 17px; font-weight: 700; margin: 0 0 12px; color: var(--amber); }
+.topbar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--line); padding-bottom: 16px; margin-bottom: 20px; }
+.topbar .eyebrow { font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; color: var(--amber); font-size: 11px; text-transform: uppercase; }
+button {
+  font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  border-radius: var(--radius); border: 1px solid var(--line); padding: 10px 16px;
+  background: var(--panel-2); color: var(--cream);
+}
+button:hover { border-color: var(--amber); }
+.btn-primary { background: var(--amber); color: #1a1512; border-color: var(--amber); }
+.btn-primary:hover { opacity: .9; }
+.btn-danger { background: transparent; color: var(--red); border-color: var(--red); }
+.btn-danger:hover { background: rgba(193,68,60,0.12); }
+.btn-sm { padding: 6px 10px; font-size: 12px; }
+input, select, textarea {
+  width: 100%; background: var(--panel-2); border: 1px solid var(--line); color: var(--cream);
+  padding: 10px 12px; border-radius: var(--radius); font-family: inherit; font-size: 14px; margin-bottom: 10px;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--amber); }
+label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin-bottom: 16px; }
+.hidden { display: none !important; }
+.error-box { background: rgba(193,68,60,0.15); border: 1px solid var(--red); color: #f2b3ae; padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-top: 10px; }
+.success-box { background: rgba(107,143,92,0.15); border: 1px solid var(--green); color: #cfe0c7; padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-top: 10px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.tabs button { flex: 1; min-width: 130px; background: var(--panel-2); color: var(--muted); }
+.tabs button.active { background: var(--amber); color: #1a1512; border-color: var(--amber); }
+.row { display: flex; gap: 10px; align-items: center; }
+.row > * { margin-bottom: 0; }
+.list-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 8px; background: var(--panel-2); }
+.list-item .grow { flex: 1; }
+.list-item .meta { font-size: 12px; color: var(--muted); }
+.chip { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; background: rgba(232,163,61,0.15); color: var(--amber); margin-inline-start: 6px; }
+.word-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); padding: 4px 8px; border-radius: 20px; font-size: 13px; margin: 3px; }
+.word-chip button { padding: 0 4px; border: none; background: none; color: var(--red); font-size: 14px; line-height: 1; }
+.words-wrap { display: flex; flex-wrap: wrap; margin-top: 8px; }
+.cat-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.cat-header .arrow { color: var(--muted); transition: transform .15s; }
+.cat-body { display: none; margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.cat-body.open { display: block; }
+.q-item { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; background: var(--panel-2); }
+.q-item .q-items { color: var(--cream); font-weight: 600; }
+.q-item .q-choices { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.q-item .q-answer { color: var(--green); font-size: 13px; margin-top: 2px; }
+.q-item .q-actions { display: flex; gap: 8px; margin-top: 10px; }
+.center { text-align: center; }
+.muted { color: var(--muted); font-size: 13px; }
+#loginView { max-width: 380px; margin: 80px auto; }
+</style>
 </head>
 <body>
-
-<button id="btn-menu-toggle" class="menu-toggle" aria-label="القائمة" aria-expanded="false">
-  <span></span><span></span><span></span>
-</button>
-
-<div id="corner-auth" class="corner-auth">
-  <button type="button" id="btn-corner-login" class="corner-auth-btn">تسجيل الدخول 👤</button>
-  <div id="corner-user" class="corner-user hidden">
-    <span class="corner-username" id="corner-username"></span>
-    <button type="button" id="btn-corner-logout" class="corner-logout-btn">خروج</button>
-  </div>
-</div>
-
-<div id="menu-overlay" class="menu-overlay"></div>
-
-<nav id="side-menu" class="side-menu">
-  <div class="side-menu-header">
-    <span>القائمة</span>
-    <button type="button" id="btn-menu-close" class="menu-close" aria-label="إغلاق">✕</button>
-  </div>
-  <input type="text" id="menu-search" placeholder="🔍 دور على لعبة...">
-  <ul class="menu-list" id="menu-list">
-    <li data-nav="home"><span>🏠</span> الرئيسية</li>
-    <li data-nav="online"><span>🌐</span> لعب أونلاين (كل واحد بجهازه)</li>
-    <li data-nav="local"><span>📱</span> لعب بجهاز واحد (تمرير الجوال)</li>
-    <li data-nav="cf"><span>🧩</span> لعبة العامل المشترك</li>
-    <li data-nav="detective"><span>🕵️</span> قصة جنائية</li>
-    <li data-nav="mafia"><span>🔪</span> لعبة المافيا</li>
-    <li data-nav="letters-online"><span>🔤</span> حرف اسم حيوان (أونلاين)</li>
-    <li data-nav="letters-local"><span>🔤</span> حرف اسم حيوان (جهاز واحد)</li>
-    <li data-nav="shop"><span>🪙</span> متجر لمّة كوين</li>
-  </ul>
-</nav>
-
 <div class="wrap">
 
-  <div class="masthead">
-    <img src="img/logo.png" alt="شعار الموقع" class="site-logo">
-    <div class="eyebrow">لعبة الاستنتاج الاجتماعي</div>
-    <h1>لمّة</h1>
-    <div class="dev-credit">تطوير فيصل الجهني</div>
+  <!-- ===== شاشة تسجيل الدخول ===== -->
+  <div id="loginView">
+    <div class="topbar" style="border:none; justify-content:center; margin-bottom:24px;">
+      <div class="center">
+        <div class="eyebrow">ADMIN ACCESS</div>
+        <h1>لوحة تحكم المشرف</h1>
+      </div>
+    </div>
+    <div class="card">
+      <form id="loginForm">
+        <label>اسم المستخدم</label>
+        <input type="text" id="loginUsername" autocomplete="username" required>
+        <label>كلمة المرور</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" required>
+        <button type="submit" class="btn-primary" style="width:100%;">دخول</button>
+      </form>
+      <div id="loginMsg"></div>
+    </div>
   </div>
 
-  <!-- إعلان: أعلى الصفحة — يبان لكل زوار الموقع بغض النظر عن اللعبة -->
-  <div class="ad-slot ad-slot-top">
-    <ins class="adsbygoogle"
-         style="display:block"
-         data-ad-client="ca-pub-8887829035671460"
-         data-ad-slot="1111111111"
-         data-ad-format="auto"
-         data-full-width-responsive="true"></ins>
-    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-  </div>
+  <!-- ===== لوحة التحكم ===== -->
+  <div id="dashView" class="hidden">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">ADMIN PANEL</div>
+        <h1>لوحة تحكم المشرف</h1>
+      </div>
+      <div class="row">
+        <span class="muted" id="whoami"></span>
+        <button id="logoutBtn" class="btn-sm">خروج</button>
+      </div>
+    </div>
 
-  <!-- ===== شاشة البداية: اختيار طريقة اللعب ===== -->
-  <div id="view-home" class="dossier">
-    <h2>وش طريقة اللعب؟</h2>
-    <button class="btn-primary" id="btn-mode-online">🌐 لعب أونلاين (كل واحد بجهازه)</button>
-    <button class="btn-primary" id="btn-mode-local" style="margin-top:10px;">📱 لعب بجهاز واحد (تمرير الجوال)</button>
-    <button class="btn-primary" id="btn-mode-cf" style="margin-top:10px;">🧩 لعبة العامل المشترك</button>
-    <button class="btn-primary" id="btn-mode-detective" style="margin-top:10px;">🕵️ قصة جنائية</button>
-    <button class="btn-primary" id="btn-mode-mafia" style="margin-top:10px;">🔪 لعبة المافيا (جهاز واحد)</button>
-    <button class="btn-primary" id="btn-mode-letters-online" style="margin-top:10px;">🔤 حرف اسم حيوان (أونلاين)</button>
-    <button class="btn-primary" id="btn-mode-letters-local" style="margin-top:10px;">🔤 حرف اسم حيوان (جهاز واحد)</button>
-    <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد والمافيا: بدون حساب، تمررون نفس الجوال بينكم. العامل المشترك وقصة جنائية: تحديات فردية بدون حساب.</p>
-  </div>
-
-  <!-- ===== شاشة تسجيل الدخول / إنشاء حساب ===== -->
-  <div id="view-auth" class="dossier hidden">
-    <button type="button" class="link-btn" id="btn-auth-back-home">‹ رجوع</button>
     <div class="tabs">
-      <button id="tab-login" class="active">تسجيل الدخول</button>
-      <button id="tab-register">حساب جديد</button>
+      <button data-tab="categories" class="active">فئات لمّة</button>
+      <button data-tab="commonfactor">العامل المشترك</button>
+      <button data-tab="letters">خانات لعبة الحروف</button>
+      <button data-tab="detective">قصة جنائية</button>
+      <button data-tab="coupons">🎟️ كوبونات الخصم</button>
+      <button data-tab="admins">المشرفين</button>
     </div>
 
-    <form id="form-login">
-      <label>اسم المستخدم</label>
-      <input type="text" id="login-username" required>
-      <label>كلمة المرور</label>
-      <input type="password" id="login-password" required minlength="8">
-      <button type="submit" class="btn-primary">دخول</button>
-      <button type="button" class="link-btn" id="btn-forgot">نسيت كلمة المرور؟</button>
-    </form>
+    <div id="msgBox"></div>
 
-    <form id="form-register" class="hidden">
-      <label>اسم اللاعب</label>
-      <input type="text" id="reg-username" required minlength="3" maxlength="20">
-      <label>البريد الإلكتروني</label>
-      <input type="email" id="reg-email" required>
-      <label>كلمة المرور (8 أحرف فأكثر)</label>
-      <input type="password" id="reg-password" required minlength="8">
-      <button type="submit" class="btn-primary">إنشاء الحساب</button>
-    </form>
-
-    <form id="form-forgot" class="hidden">
-      <label>أدخل بريدك عشان نرسل لك رابط استعادة</label>
-      <input type="email" id="forgot-email" required>
-      <button type="submit" class="btn-primary">إرسال رابط الاستعادة</button>
-      <button type="button" class="link-btn" id="btn-back-login">رجوع لتسجيل الدخول</button>
-    </form>
-
-    <div id="auth-message"></div>
-  </div>
-
-  <!-- ===== وضع جهاز واحد: إعداد اللاعبين ===== -->
-  <div id="view-local-setup" class="hidden">
-    <div class="dossier">
-      <button type="button" class="link-btn" id="btn-local-back-home">‹ رجوع</button>
-      <h2>إعداد الجولة <span class="tag">جهاز واحد</span></h2>
-
-      <label>اختر فئة (أو اتركها عشوائية)</label>
-      <select id="local-category-select"><option value="">🎲 عشوائي</option></select>
-
-      <label>أسماء اللاعبين (٣ على الأقل)</label>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="local-player-name" maxlength="20" placeholder="اسم اللاعب" style="flex:1;">
-        <button class="btn-primary" id="btn-local-add-player" style="width:auto;margin-top:0;padding:11px 18px;">+ إضافة</button>
+    <!-- ===== تبويب: الفئات ===== -->
+    <div id="tab-categories" class="tab-panel">
+      <div class="card">
+        <h2>إضافة قسم جديد</h2>
+        <form id="addCategoryForm" class="row">
+          <input type="text" id="newCategoryName" placeholder="اسم القسم (مثال: أدوات مكتبية)" required>
+          <button type="submit" class="btn-primary">إضافة</button>
+        </form>
       </div>
-      <ul class="players-list" id="local-players-list" style="margin-top:14px;"></ul>
-
-      <button class="btn-primary" id="btn-local-start">ابدأ اللعبة</button>
-      <p class="center-note" id="local-setup-note"></p>
+      <div id="categoriesList"></div>
     </div>
-  </div>
 
-  <!-- ===== وضع جهاز واحد: كشف الأدوار (تمرير الجوال) ===== -->
-  <div id="view-local-reveal" class="hidden">
-    <div class="dossier">
-      <h2>تمرير الجوال <span class="tag">سري</span></h2>
-      <div id="local-reveal-pass">
-        <p class="center-note" style="font-size:16px;">مرر الجوال لـ<br><b id="local-reveal-name" style="color:var(--amber);font-size:22px;"></b></p>
-        <button class="btn-primary" id="btn-local-reveal-show">اضغط عشان تشوف دورك</button>
+    <!-- ===== تبويب: العامل المشترك ===== -->
+    <div id="tab-commonfactor" class="tab-panel hidden">
+      <div class="card">
+        <h2>إضافة سؤال جديد</h2>
+        <form id="addQuestionForm">
+          <label>المستوى</label>
+          <select id="qLevel">
+            <option value="1">1 - سهل</option>
+            <option value="2">2 - متوسط</option>
+            <option value="3">3 - صعب</option>
+          </select>
+          <label>العناصر (افصل بينها بفاصلة ,)</label>
+          <input type="text" id="qItems" placeholder="مثال: تويوتا, لكزس, دايهاتسو" required>
+          <label>الخيارات (افصل بينها بفاصلة ,)</label>
+          <input type="text" id="qChoices" placeholder="مثال: شركات يابانية, شركات ألمانية" required>
+          <label>الإجابة الصحيحة (لازم تكون نفس نص أحد الخيارات بالضبط)</label>
+          <input type="text" id="qAnswer" placeholder="مثال: شركات يابانية" required>
+          <button type="submit" class="btn-primary">إضافة السؤال</button>
+        </form>
       </div>
-      <div id="local-reveal-card" class="hidden">
-        <div class="secret-card" id="local-secret-card">
-          <div class="role-label" id="local-role-label"></div>
-          <div class="category-name" id="local-category-display"></div>
-          <div class="the-word" id="local-word-display"></div>
-        </div>
-        <button class="btn-primary" id="btn-local-reveal-next">تمام، شفت دوري — التالي</button>
-      </div>
+      <div id="questionsList"></div>
     </div>
-  </div>
 
-  <!-- ===== وضع جهاز واحد: شاشة اللعب ===== -->
-  <div id="view-local-play" class="hidden">
-    <div class="dossier">
-      <h2>الأسئلة والنقاش <span class="tag" id="local-play-category"></span></h2>
-      <p class="center-note">اسألوا بعض بذكاء بدون ما تفضحون الكلمة. لما تخلصون، ابدأوا التصويت.</p>
-      <button class="btn-primary" id="btn-local-start-voting">ابدأ التصويت</button>
-    </div>
-  </div>
-
-  <!-- ===== وضع جهاز واحد: التصويت ===== -->
-  <div id="view-local-voting" class="hidden">
-    <div class="dossier">
-      <h2>مين برا اللمّة برأيكم؟ <span class="tag">تصويت</span></h2>
-      <p class="center-note">اتفقوا سوا على الشخص المتهم واضغطوا على اسمه</p>
-      <div class="vote-grid" id="local-vote-grid"></div>
-    </div>
-  </div>
-
-  <!-- ===== وضع جهاز واحد: النتائج ===== -->
-  <div id="view-local-results" class="hidden">
-    <div class="dossier">
-      <h2>كشف القضية <span class="tag">النتيجة</span></h2>
-      <div id="local-results-content"></div>
-      <button class="btn-primary" id="btn-local-play-again">جولة جديدة (نفس اللاعبين)</button>
-      <button class="btn-ghost" id="btn-local-new-players">لاعبين جدد</button>
-    </div>
-  </div>
-
-  <!-- ===== لعبة العامل المشترك ===== -->
-  <div id="view-cf-play" class="hidden">
-    <div class="dossier">
-      <button type="button" class="link-btn" id="btn-cf-back-home">‹ رجوع</button>
-      <h2>العامل المشترك <span class="tag" id="cf-progress"></span></h2>
-      <div class="secret-card" id="cf-items-card">
-        <div class="role-label">وش العامل المشترك؟</div>
-        <div class="the-word" id="cf-items-display" style="font-size:22px;"></div>
-      </div>
-      <div id="cf-choices" style="display:grid;gap:10px;margin-top:16px;"></div>
-      <p class="center-note" id="cf-feedback"></p>
-      <button class="btn-primary hidden" id="btn-cf-next">السؤال التالي</button>
-    </div>
-  </div>
-
-  <!-- ===== نتيجة لعبة العامل المشترك ===== -->
-  <div id="view-cf-results" class="hidden">
-    <div class="dossier">
-      <h2>النتيجة النهائية <span class="tag">العامل المشترك</span></h2>
-      <div id="cf-results-content"></div>
-      <button class="btn-primary" id="btn-cf-restart">العب من جديد</button>
-      <button class="btn-ghost" id="btn-cf-home">الرجوع للرئيسية</button>
-    </div>
-  </div>
-
-  <!-- ===== قصة جنائية: إعداد الجولة ===== -->
-  <div id="view-detective-setup" class="hidden">
-    <div class="dossier">
-      <button type="button" class="link-btn" id="btn-detective-setup-back-home">‹ رجوع</button>
-      <h2>قصة جنائية <span class="tag">إعداد</span></h2>
-      <p class="center-note">اقرأ تفاصيل كل قضية بعناية، حلّل الأدلة، واختر الحل الصحيح من بين 4 خيارات.</p>
-
-      <label>مستوى الصعوبة</label>
-      <select id="detective-level-select">
-        <option value="mixed">🎲 كل المستويات</option>
-        <option value="1">سهل (15:00 لكل قضية)</option>
-        <option value="2">متوسط (10:00 لكل قضية)</option>
-        <option value="3">صعب (4:30 لكل قضية)</option>
-      </select>
-
-      <div style="display:flex;align-items:center;gap:8px;margin-top:14px;">
-        <input type="checkbox" id="detective-timer-toggle" style="width:auto;" checked>
-        <label style="margin:0;">تفعيل المؤقت لكل قضية (اختياري)</label>
-      </div>
-
-      <button class="btn-primary" id="btn-detective-start" style="margin-top:16px;">ابدأ التحقيق</button>
-    </div>
-  </div>
-
-  <!-- ===== قصة جنائية: شاشة اللعب ===== -->
-  <div id="view-detective-play" class="hidden">
-    <div class="dossier">
-      <button type="button" class="link-btn" id="btn-detective-back-home">‹ رجوع</button>
-      <h2>قصة جنائية <span class="tag" id="detective-progress"></span></h2>
-      <div class="secret-card" id="detective-timer-card" style="text-align:center;">
-        <div class="role-label">الوقت المتبقي</div>
-        <div class="the-word" id="detective-timer-display" style="font-size:26px;"></div>
-      </div>
-      <div class="secret-card" style="margin-top:12px;">
-        <div class="role-label">تفاصيل القضية</div>
-        <div id="detective-story-display" style="line-height:1.9;font-size:15px;color:var(--cream);"></div>
-      </div>
-      <div id="detective-choices" style="display:grid;gap:10px;margin-top:16px;"></div>
-      <p class="center-note" id="detective-feedback"></p>
-      <button class="btn-primary hidden" id="btn-detective-next">القضية التالية</button>
-    </div>
-  </div>
-
-  <!-- ===== قصة جنائية: النتيجة ===== -->
-  <div id="view-detective-results" class="hidden">
-    <div class="dossier">
-      <h2>ملف القضايا مغلق <span class="tag">قصة جنائية</span></h2>
-      <div id="detective-results-content"></div>
-      <button class="btn-primary" id="btn-detective-restart">جولة جديدة</button>
-      <button class="btn-ghost" id="btn-detective-home">الرجوع للرئيسية</button>
-    </div>
-  </div>
-
-  <!-- ===== لعبة المافيا: إعداد اللاعبين ===== -->
-  <div id="view-mafia-setup" class="hidden">
-    <div class="dossier">
-      <button type="button" class="link-btn" id="btn-mafia-back-home">‹ رجوع</button>
-      <h2>إعداد لعبة المافيا <span class="tag">جهاز واحد</span></h2>
-
-      <label>أسماء اللاعبين (٥ إلى ٢٠ لاعب)</label>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="mafia-player-name" maxlength="20" placeholder="اسم اللاعب" style="flex:1;">
-        <button class="btn-primary" id="btn-mafia-add-player" style="width:auto;margin-top:0;padding:11px 18px;">+ إضافة</button>
-      </div>
-      <ul class="players-list" id="mafia-players-list" style="margin-top:14px;"></ul>
-
-      <p class="center-note" id="mafia-role-preview"></p>
-      <button class="btn-primary" id="btn-mafia-start">ابدأ اللعبة</button>
-      <p class="center-note" id="mafia-setup-note"></p>
-    </div>
-  </div>
-
-  <!-- ===== لعبة المافيا: كشف الأدوار (تمرير الجوال) ===== -->
-  <div id="view-mafia-reveal" class="hidden">
-    <div class="dossier">
-      <h2>تمرير الجوال <span class="tag">سري</span></h2>
-      <div id="mafia-reveal-pass">
-        <p class="center-note" style="font-size:16px;">مرر الجوال لـ<br><b id="mafia-reveal-name" style="color:var(--amber);font-size:22px;"></b></p>
-        <button class="btn-primary" id="btn-mafia-reveal-show">اضغط عشان تشوف دورك</button>
-      </div>
-      <div id="mafia-reveal-card" class="hidden">
-        <div class="secret-card" id="mafia-secret-card">
-          <div class="role-label" id="mafia-role-label"></div>
-          <div class="the-word" id="mafia-role-name-display"></div>
-        </div>
-        <p class="center-note" id="mafia-role-desc"></p>
-        <p class="center-note" id="mafia-teammates-note"></p>
-        <button class="btn-primary" id="btn-mafia-reveal-next">تمام، شفت دوري — التالي</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== لعبة المافيا: مرحلة الليل ===== -->
-  <div id="view-mafia-night" class="hidden">
-    <div class="dossier">
-      <h2>الليل 🌙 <span class="tag" id="mafia-night-round"></span></h2>
-      <div id="mafia-night-pass">
-        <p class="center-note" style="font-size:16px;" id="mafia-night-pass-text"></p>
-        <button class="btn-primary" id="btn-mafia-night-show">اضغط عشان تشوف</button>
-      </div>
-      <div id="mafia-night-action" class="hidden">
-        <p class="center-note" id="mafia-night-instruction"></p>
-        <div id="mafia-night-choices" style="display:grid;gap:10px;margin-top:16px;"></div>
-        <p class="center-note" id="mafia-night-feedback"></p>
-        <button class="btn-primary hidden" id="btn-mafia-night-next">التالي</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== لعبة المافيا: مرحلة النهار ===== -->
-  <div id="view-mafia-day" class="hidden">
-    <div class="dossier">
-      <h2>النهار ☀️ <span class="tag" id="mafia-day-round"></span></h2>
-      <div id="mafia-day-result"></div>
-      <p class="center-note">ناقشوا اللي صار الليلة وحاولوا تكتشفوا مين المافيا.</p>
-      <button class="btn-primary" id="btn-mafia-start-voting">ابدأ التصويت</button>
-    </div>
-  </div>
-
-  <!-- ===== لعبة المافيا: التصويت ===== -->
-  <div id="view-mafia-voting" class="hidden">
-    <div class="dossier">
-      <h2>مين المافيا برأيكم؟ <span class="tag">تصويت</span></h2>
-      <p class="center-note">اتفقوا سوا على الشخص المشتبه فيه واضغطوا على اسمه</p>
-      <div class="vote-grid" id="mafia-vote-grid"></div>
-    </div>
-  </div>
-
-  <!-- ===== لعبة المافيا: نتيجة اللعبة ===== -->
-  <div id="view-mafia-results" class="hidden">
-    <div class="dossier">
-      <h2>نتيجة اللعبة <span class="tag">المافيا</span></h2>
-      <div id="mafia-results-content"></div>
-      <button class="btn-primary" id="btn-mafia-play-again">جولة جديدة (نفس اللاعبين)</button>
-      <button class="btn-ghost" id="btn-mafia-new-players">لاعبين جدد</button>
-    </div>
-  </div>
-
-  <!-- ===== شاشة اللوبي (قبل بدء اللعبة) ===== -->
-  <div id="view-lobby" class="hidden">
-    <div class="dossier">
-      <h2>غرفة اللعب <span class="tag" id="user-badge"></span></h2>
-
-      <div id="lobby-choice">
-        <button class="btn-primary" id="btn-create-room">إنشاء غرفة جديدة</button>
-        <div style="text-align:center;color:var(--muted);margin:14px 0;font-size:13px;">— أو —</div>
-        <label>كود الغرفة</label>
-        <input type="text" id="join-code" maxlength="5" placeholder="مثال: AB12X" style="text-transform:uppercase;">
-        <button class="btn-primary" id="btn-join-room">انضمام للغرفة</button>
-      </div>
-
-      <div id="lobby-room" class="hidden">
-        <div class="room-code" id="room-code-display"></div>
-        <p class="center-note">شارك الكود مع أصدقائك عشان ينضمون</p>
-
-        <label>اللاعبون في الغرفة</label>
-        <ul class="players-list" id="players-list"></ul>
-
-        <div id="host-controls" class="hidden">
-          <label>اختر فئة (أو اتركها عشوائية)</label>
-          <select id="category-select"><option value="">🎲 عشوائي</option></select>
-          <button class="btn-primary" id="btn-start-game">ابدأ اللعبة</button>
-        </div>
-        <p id="waiting-note" class="center-note hidden">بانتظار المضيف يبدأ اللعبة...</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== شاشة اللعب: عرض الدور والكلمة ===== -->
-  <div id="view-playing" class="hidden">
-    <div class="dossier">
-      <h2>دورك في هذي الجولة <span class="tag">سري</span></h2>
-      <div class="secret-card" id="secret-card">
-        <div class="role-label" id="role-label"></div>
-        <div class="category-name" id="category-display"></div>
-        <div class="the-word" id="word-display"></div>
-      </div>
-      <p class="center-note">اسألوا بعض بذكاء بدون ما تفضحون الكلمة. لما تخلصون الأسئلة، المضيف يبدأ التصويت.</p>
-      <div id="host-voting-control" class="hidden">
-        <button class="btn-primary" id="btn-start-voting">ابدأ التصويت الآن</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== شاشة التصويت ===== -->
-  <div id="view-voting" class="hidden">
-    <div class="dossier">
-      <h2>مين برا اللمّة برأيك؟ <span class="tag">تصويت</span></h2>
-      <div class="vote-grid" id="vote-grid"></div>
-      <p class="center-note" id="vote-progress-note"></p>
-    </div>
-  </div>
-
-  <!-- ===== شاشة النتائج ===== -->
-  <div id="view-results" class="hidden">
-    <div class="dossier">
-      <h2>كشف القضية <span class="tag">النتيجة</span></h2>
-      <div id="results-content"></div>
-      <div id="host-again-control" class="hidden">
-        <button class="btn-primary" id="btn-play-again">جولة جديدة</button>
-      </div>
-      <p id="guest-again-note" class="center-note hidden">بانتظار المضيف يبدأ جولة جديدة...</p>
-    </div>
-  </div>
-
-  <!-- ===== حرف اسم حيوان: جهاز واحد — إعداد ===== -->
-  <div id="view-letters-local-setup" class="hidden">
-    <div class="dossier">
-      <button type="button" class="link-btn" id="btn-lg-local-back-home">‹ رجوع</button>
-      <h2>إعداد الجولة <span class="tag">جهاز واحد</span></h2>
-
-      <label>الخانات (٣ على الأقل)</label>
-      <div class="lg-columns-picker" id="lg-local-columns-list"></div>
-
-      <label>أسماء اللاعبين (لاعبين اثنين على الأقل)</label>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="lg-local-player-name" maxlength="20" placeholder="اسم اللاعب" style="flex:1;">
-        <button class="btn-primary" id="btn-lg-local-add-player" style="width:auto;margin-top:0;padding:11px 18px;">+ إضافة</button>
-      </div>
-      <ul class="players-list" id="lg-local-players-list" style="margin-top:14px;"></ul>
-
-      <button class="btn-primary" id="btn-lg-local-start">ابدأ الجولة</button>
-      <p class="center-note" id="lg-local-setup-note"></p>
-    </div>
-  </div>
-
-  <!-- ===== حرف اسم حيوان: جهاز واحد — تمرير الجهاز بين اللاعبين ===== -->
-  <div id="view-letters-local-pass" class="hidden">
-    <div class="dossier">
-      <h2>تمرير الجهاز <span class="tag">دورك</span></h2>
-      <p class="center-note" style="font-size:16px;">مرر الجهاز لـ<br><b id="lg-local-pass-name" style="color:var(--amber);font-size:22px;"></b></p>
-      <p class="center-note" id="lg-local-pass-columns"></p>
-      <button class="btn-primary" id="btn-lg-local-pass-start">ابدأ دوري (دقيقة ونص)</button>
-    </div>
-  </div>
-
-  <!-- ===== حرف اسم حيوان: جهاز واحد — شاشة الكتابة ===== -->
-  <div id="view-letters-local-turn" class="hidden">
-    <div class="dossier">
-      <h2 id="lg-local-turn-letter">الحرف</h2>
-      <div class="lg-timer" id="lg-local-turn-timer">1:30</div>
-      <div id="lg-local-turn-inputs"></div>
-      <button class="btn-primary" id="btn-lg-local-done">تم ✅</button>
-    </div>
-  </div>
-
-  <!-- ===== حرف اسم حيوان: جهاز واحد — نتيجة الجولة ===== -->
-  <div id="view-letters-local-results" class="hidden">
-    <div class="dossier">
-      <h2>نتيجة الجولة <span class="tag">مراجعة</span></h2>
-      <div id="lg-local-results-table"></div>
-      <div id="lg-local-scoreboard"></div>
-      <button class="btn-primary" id="btn-lg-local-next-round">الجولة التالية</button>
-      <button class="btn-ghost" id="btn-lg-local-end-game">إنهاء اللعبة وإعلان الفائز</button>
-    </div>
-  </div>
-
-  <!-- ===== حرف اسم حيوان: جهاز واحد — نهاية اللعبة ===== -->
-  <div id="view-letters-local-gameover" class="hidden">
-    <div class="dossier">
-      <h2>نتيجة اللعبة النهائية <span class="tag">حرف اسم حيوان</span></h2>
-      <div id="lg-local-gameover-content"></div>
-      <button class="btn-primary" id="btn-lg-local-restart">لاعبين جدد</button>
-      <button class="btn-ghost" id="btn-lg-local-home">الرجوع للرئيسية</button>
-    </div>
-  </div>
-
-  <!-- ===== حرف اسم حيوان: أونلاين — اللوبي ===== -->
-  <div id="view-letters-lobby" class="hidden">
-    <div class="dossier">
-      <button type="button" class="link-btn" id="btn-lg-lobby-back-home">‹ رجوع</button>
-      <h2>غرفة حرف اسم حيوان <span class="tag" id="lg-user-badge"></span></h2>
-
-      <div id="lg-lobby-choice">
-        <button class="btn-primary" id="btn-lg-create-room">إنشاء غرفة جديدة</button>
-        <div style="text-align:center;color:var(--muted);margin:14px 0;font-size:13px;">— أو —</div>
-        <label>كود الغرفة</label>
-        <input type="text" id="lg-join-code" maxlength="5" placeholder="مثال: حAB2X" style="text-transform:uppercase;">
-        <button class="btn-primary" id="btn-lg-join-room">انضمام للغرفة</button>
-      </div>
-
-      <div id="lg-lobby-room" class="hidden">
-        <div class="room-code" id="lg-room-code-display"></div>
-        <p class="center-note">شارك الكود مع أصدقائك عشان ينضمون</p>
-
-        <label>اللاعبون في الغرفة</label>
-        <ul class="players-list" id="lg-players-list"></ul>
-
-        <div id="lg-host-controls" class="hidden">
-          <label>الخانات (٣ على الأقل)</label>
-          <div class="lg-columns-picker" id="lg-columns-list"></div>
-          <button class="btn-primary" id="btn-lg-start-round">ابدأ الجولة</button>
-        </div>
-        <p id="lg-waiting-note" class="center-note hidden">بانتظار المضيف يبدأ الجولة...</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== حرف اسم حيوان: أونلاين — شاشة اللعب ===== -->
-  <div id="view-letters-play" class="hidden">
-    <div class="dossier">
-      <h2 id="lg-play-letter">الحرف</h2>
-      <div class="lg-timer" id="lg-play-timer">1:30</div>
-      <div id="lg-play-inputs"></div>
-      <button class="btn-primary" id="btn-lg-done">تم ✅</button>
-      <p class="center-note" id="lg-progress-note"></p>
-    </div>
-  </div>
-
-  <!-- ===== حرف اسم حيوان: أونلاين — نتيجة الجولة ===== -->
-  <div id="view-letters-results" class="hidden">
-    <div class="dossier">
-      <h2>نتيجة الجولة <span class="tag">مراجعة</span></h2>
-      <div id="lg-results-table"></div>
-      <div id="lg-scoreboard"></div>
-      <div id="lg-host-round-controls" class="hidden">
-        <button class="btn-primary" id="btn-lg-next-round">الجولة التالية</button>
-        <button class="btn-ghost" id="btn-lg-end-game">إنهاء اللعبة وإعلان الفائز</button>
-      </div>
-      <p id="lg-guest-round-note" class="center-note hidden">بانتظار المضيف...</p>
-    </div>
-  </div>
-
-  <!-- ===== حرف اسم حيوان: أونلاين — نهاية اللعبة ===== -->
-  <div id="view-letters-gameover" class="hidden">
-    <div class="dossier">
-      <h2>نتيجة اللعبة النهائية <span class="tag">حرف اسم حيوان</span></h2>
-      <div id="lg-gameover-content"></div>
-      <button class="btn-primary" id="btn-lg-play-new">غرفة جديدة</button>
-      <button class="btn-ghost" id="btn-lg-home">الرجوع للرئيسية</button>
-    </div>
-  </div>
-
-  <!-- ===== متجر لمّة كوين ===== -->
-  <div id="view-shop" class="hidden">
-    <div class="dossier">
-      <h2>🪙 متجر لمّة كوين</h2>
-
-      <div id="shop-logged-out" class="hidden">
-        <p class="center-note">لازم تسجل دخولك أول عشان تشتري أو تفتح محتوى.</p>
-        <button class="btn-primary" id="btn-shop-goto-login">تسجيل الدخول</button>
-      </div>
-
-      <div id="shop-logged-in" class="hidden">
-        <div class="shop-wallet-bar">
-          <span>رصيدك:</span>
-          <strong id="shop-coin-balance">—</strong>
-          <span>🪙</span>
-        </div>
-        <div id="shop-sub-status" class="shop-sub-status"></div>
-
-        <h3 class="shop-section-title">باقات الكوينز</h3>
-        <div id="shop-packages" class="shop-cards"></div>
-
-        <h3 class="shop-section-title">👑 اشتراك لمّة بلس</h3>
-        <div id="shop-subscription-card" class="shop-cards"></div>
-
-        <div id="shop-cart-section" class="hidden">
-          <h3 class="shop-section-title">🛒 السلة</h3>
-          <div id="shop-cart-list"></div>
-          <div class="shop-coupon-row">
-            <input type="text" id="shop-coupon-input" placeholder="كود الخصم (اختياري)">
-            <button class="btn-ghost" id="btn-shop-apply-coupon">تطبيق</button>
+    <!-- ===== تبويب: خانات لعبة الحروف ===== -->
+    <div id="tab-letters" class="tab-panel hidden">
+      <div class="card">
+        <h2>إضافة خانة جديدة</h2>
+        <form id="addColumnForm">
+          <label>المعرف (إنجليزي بدون مسافات، مثال: fruit)</label>
+          <input type="text" id="colKey" placeholder="fruit" required>
+          <label>الاسم الظاهر</label>
+          <input type="text" id="colLabel" placeholder="فاكهة" required>
+          <label>إيموجي (اختياري)</label>
+          <input type="text" id="colEmoji" placeholder="🍎">
+          <div class="row" style="margin-bottom:10px;">
+            <input type="checkbox" id="colDefault" style="width:auto;">
+            <label style="margin:0;">مفعّلة افتراضياً</label>
           </div>
-          <div id="shop-coupon-message"></div>
-          <div id="shop-cart-totals" class="shop-cart-totals"></div>
-          <button class="btn-primary" id="btn-shop-checkout-cart">إتمام الشراء</button>
-        </div>
-
-        <h3 class="shop-section-title">فتح فئات لعبة لمّة</h3>
-        <div id="shop-categories-list" class="shop-unlock-list"></div>
-        <button class="btn-ghost" id="btn-shop-unlock-all-categories"></button>
-
-        <h3 class="shop-section-title">فتح قضايا قصة جنائية</h3>
-        <div id="shop-cases-list" class="shop-unlock-list"></div>
-        <button class="btn-ghost" id="btn-shop-unlock-all-cases"></button>
-
-        <h3 class="shop-section-title">عناصر إضافية</h3>
-        <div class="shop-unlock-list">
-          <div class="shop-unlock-row">
-            <span>🔪 لعبة المافيا</span>
-            <button class="btn-primary shop-buy-btn" id="btn-shop-unlock-mafia"></button>
-          </div>
-          <div class="shop-unlock-row">
-            <span>🚫 إزالة الإعلانات</span>
-            <button class="btn-primary shop-buy-btn" id="btn-shop-unlock-ads"></button>
-          </div>
-        </div>
-
-        <div id="shop-message"></div>
+          <button type="submit" class="btn-primary">إضافة الخانة</button>
+        </form>
       </div>
-
-      <button class="btn-ghost" id="btn-shop-back-home">الرجوع للرئيسية</button>
+      <div id="columnsList"></div>
     </div>
+
+    <!-- ===== تبويب: قصة جنائية ===== -->
+    <div id="tab-detective" class="tab-panel hidden">
+      <div class="card">
+        <h2>إضافة قضية جديدة</h2>
+        <form id="addCaseForm">
+          <label>مستوى الصعوبة</label>
+          <select id="caseLevel">
+            <option value="1">1 - سهل</option>
+            <option value="2">2 - متوسط</option>
+            <option value="3">3 - صعب</option>
+          </select>
+          <label>نص القضية</label>
+          <textarea id="caseStory" rows="4" placeholder="اكتب تفاصيل القضية والأدلة هنا..." required></textarea>
+          <label>الخيارات الأربعة (افصل بينها بفاصلة ,)</label>
+          <input type="text" id="caseChoices" placeholder="مثال: الفاعل هو الحارس, لا يوجد فاعل, الفاعل هو الجار, السرقة وهمية" required>
+          <label>الإجابة الصحيحة (لازم تكون نفس نص أحد الخيارات بالضبط)</label>
+          <input type="text" id="caseAnswer" placeholder="مثال: الفاعل هو الحارس" required>
+          <button type="submit" class="btn-primary">إضافة القضية</button>
+        </form>
+      </div>
+      <div id="casesList"></div>
+    </div>
+
+    <!-- ===== تبويب: كوبونات الخصم ===== -->
+    <div id="tab-coupons" class="tab-panel hidden">
+      <div class="card">
+        <h2>إنشاء كوبون جديد</h2>
+        <form id="addCouponForm">
+          <label>الكود (سيتحول تلقائياً لحروف كبيرة)</label>
+          <input type="text" id="couponCode" placeholder="مثال: EID2026" required>
+          <label>نوع الخصم</label>
+          <select id="couponType">
+            <option value="percent">نسبة مئوية %</option>
+            <option value="fixed">مبلغ ثابت (ريال)</option>
+          </select>
+          <label>قيمة الخصم</label>
+          <input type="number" id="couponValue" step="0.01" min="0.01" placeholder="مثال: 20" required>
+          <label>الحد الأقصى لعدد مرات الاستخدام (اختياري، فاضي = بدون حد)</label>
+          <input type="number" id="couponMaxUses" min="1" placeholder="مثال: 100">
+          <label>تاريخ الانتهاء (اختياري)</label>
+          <input type="date" id="couponExpiry">
+          <button type="submit" class="btn-primary">إنشاء الكوبون</button>
+        </form>
+      </div>
+      <div id="couponsList"></div>
+    </div>
+
+    <!-- ===== تبويب: المشرفين ===== -->
+    <div id="tab-admins" class="tab-panel hidden">
+      <div class="card">
+        <h2>إضافة مشرف جديد</h2>
+        <form id="addAdminForm">
+          <label>اسم المستخدم</label>
+          <input type="text" id="newAdminUsername" required>
+          <label>كلمة المرور (8 أحرف على الأقل)</label>
+          <input type="password" id="newAdminPassword" minlength="8" required>
+          <button type="submit" class="btn-primary">إضافة مشرف</button>
+        </form>
+      </div>
+      <div id="adminsList"></div>
+    </div>
+
   </div>
-
-  <!-- إعلان: قبل الفوتر — يبان بعد ما يخلص المستخدم يتصفح/يلعب -->
-  <div class="ad-slot ad-slot-bottom">
-    <ins class="adsbygoogle"
-         style="display:block"
-         data-ad-client="ca-pub-8887829035671460"
-         data-ad-slot="2222222222"
-         data-ad-format="auto"
-         data-full-width-responsive="true"></ins>
-    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-  </div>
-
-  <footer class="site-footer">
-    <p>برمجة وتطوير: <strong>Faisal ALjuhani</strong></p>
-    <a href="https://instagram.com/f99oi_" target="_blank" rel="noopener noreferrer" class="footer-ig">
-      📸 تواصل عبر انستقرام
-      <span>@f99oi_</span>
-    </a>
-    <a href="terms.html" class="footer-terms">سياسة الاستخدام</a>
-  </footer>
-
 </div>
 
-<script src="js/app.js"></script>
-<script src="js/shop.js"></script>
-<script src="js/local.js"></script>
-<script src="js/commonfactor.js"></script>
-<script src="js/detective.js"></script>
-<script src="js/mafia.js"></script>
-<script src="js/letters.js"></script>
+<script src="js/admin.js"></script>
 </body>
 </html>
