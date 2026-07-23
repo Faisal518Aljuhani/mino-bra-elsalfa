@@ -34,6 +34,7 @@
     <li data-nav="online"><span>🌐</span> لعب أونلاين (كل واحد بجهازه)</li>
     <li data-nav="local"><span>📱</span> لعب بجهاز واحد (تمرير الجوال)</li>
     <li data-nav="cf"><span>🧩</span> لعبة العامل المشترك</li>
+    <li data-nav="detective"><span>🕵️</span> قصة جنائية</li>
     <li data-nav="mafia"><span>🔪</span> لعبة المافيا</li>
     <li data-nav="letters-online"><span>🔤</span> حرف اسم حيوان (أونلاين)</li>
     <li data-nav="letters-local"><span>🔤</span> حرف اسم حيوان (جهاز واحد)</li>
@@ -55,10 +56,11 @@
     <button class="btn-primary" id="btn-mode-online">🌐 لعب أونلاين (كل واحد بجهازه)</button>
     <button class="btn-primary" id="btn-mode-local" style="margin-top:10px;">📱 لعب بجهاز واحد (تمرير الجوال)</button>
     <button class="btn-primary" id="btn-mode-cf" style="margin-top:10px;">🧩 لعبة العامل المشترك</button>
+    <button class="btn-primary" id="btn-mode-detective" style="margin-top:10px;">🕵️ قصة جنائية</button>
     <button class="btn-primary" id="btn-mode-mafia" style="margin-top:10px;">🔪 لعبة المافيا (جهاز واحد)</button>
     <button class="btn-primary" id="btn-mode-letters-online" style="margin-top:10px;">🔤 حرف اسم حيوان (أونلاين)</button>
     <button class="btn-primary" id="btn-mode-letters-local" style="margin-top:10px;">🔤 حرف اسم حيوان (جهاز واحد)</button>
-    <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد والمافيا: بدون حساب، تمررون نفس الجوال بينكم. العامل المشترك: لعبة تحدي فردية بدون حساب.</p>
+    <p class="center-note">أونلاين: تحتاج حساب، كل لاعب يدخل من جواله. جهاز واحد والمافيا: بدون حساب، تمررون نفس الجوال بينكم. العامل المشترك وقصة جنائية: تحديات فردية بدون حساب.</p>
   </div>
 
   <!-- ===== شاشة تسجيل الدخول / إنشاء حساب ===== -->
@@ -188,6 +190,59 @@
       <div id="cf-results-content"></div>
       <button class="btn-primary" id="btn-cf-restart">العب من جديد</button>
       <button class="btn-ghost" id="btn-cf-home">الرجوع للرئيسية</button>
+    </div>
+  </div>
+
+  <!-- ===== قصة جنائية: إعداد الجولة ===== -->
+  <div id="view-detective-setup" class="hidden">
+    <div class="dossier">
+      <button type="button" class="link-btn" id="btn-detective-setup-back-home">‹ رجوع</button>
+      <h2>قصة جنائية <span class="tag">إعداد</span></h2>
+      <p class="center-note">اقرأ تفاصيل كل قضية بعناية، حلّل الأدلة، واختر الحل الصحيح من بين 4 خيارات.</p>
+
+      <label>مستوى الصعوبة</label>
+      <select id="detective-level-select">
+        <option value="mixed">🎲 كل المستويات</option>
+        <option value="1">سهل (15:00 لكل قضية)</option>
+        <option value="2">متوسط (10:00 لكل قضية)</option>
+        <option value="3">صعب (4:30 لكل قضية)</option>
+      </select>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-top:14px;">
+        <input type="checkbox" id="detective-timer-toggle" style="width:auto;" checked>
+        <label style="margin:0;">تفعيل المؤقت لكل قضية (اختياري)</label>
+      </div>
+
+      <button class="btn-primary" id="btn-detective-start" style="margin-top:16px;">ابدأ التحقيق</button>
+    </div>
+  </div>
+
+  <!-- ===== قصة جنائية: شاشة اللعب ===== -->
+  <div id="view-detective-play" class="hidden">
+    <div class="dossier">
+      <button type="button" class="link-btn" id="btn-detective-back-home">‹ رجوع</button>
+      <h2>قصة جنائية <span class="tag" id="detective-progress"></span></h2>
+      <div class="secret-card" id="detective-timer-card" style="text-align:center;">
+        <div class="role-label">الوقت المتبقي</div>
+        <div class="the-word" id="detective-timer-display" style="font-size:26px;"></div>
+      </div>
+      <div class="secret-card" style="margin-top:12px;">
+        <div class="role-label">تفاصيل القضية</div>
+        <div id="detective-story-display" style="line-height:1.9;font-size:15px;color:var(--cream);"></div>
+      </div>
+      <div id="detective-choices" style="display:grid;gap:10px;margin-top:16px;"></div>
+      <p class="center-note" id="detective-feedback"></p>
+      <button class="btn-primary hidden" id="btn-detective-next">القضية التالية</button>
+    </div>
+  </div>
+
+  <!-- ===== قصة جنائية: النتيجة ===== -->
+  <div id="view-detective-results" class="hidden">
+    <div class="dossier">
+      <h2>ملف القضايا مغلق <span class="tag">قصة جنائية</span></h2>
+      <div id="detective-results-content"></div>
+      <button class="btn-primary" id="btn-detective-restart">جولة جديدة</button>
+      <button class="btn-ghost" id="btn-detective-home">الرجوع للرئيسية</button>
     </div>
   </div>
 
@@ -485,6 +540,7 @@
 <script src="js/app.js"></script>
 <script src="js/local.js"></script>
 <script src="js/commonfactor.js"></script>
+<script src="js/detective.js"></script>
 <script src="js/mafia.js"></script>
 <script src="js/letters.js"></script>
 </body>

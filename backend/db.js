@@ -81,4 +81,15 @@ CREATE TABLE IF NOT EXISTS letters_columns (
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
+// قضايا لعبة "قصة جنائية" — حل قضايا غامضة بالتفكير والتحليل
+db.exec(`
+CREATE TABLE IF NOT EXISTS detective_cases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  level INTEGER NOT NULL DEFAULT 1,  -- 1 سهل، 2 متوسط، 3 صعب
+  story TEXT NOT NULL,
+  choices TEXT NOT NULL,   -- JSON array (4 خيارات)
+  answer TEXT NOT NULL,
+  created_at INTEGER DEFAULT (strftime('%s','now'))
+)`);
+
 module.exports = db;

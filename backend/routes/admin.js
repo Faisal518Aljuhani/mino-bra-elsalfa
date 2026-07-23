@@ -285,4 +285,59 @@ router.delete('/letters-columns/:id', (req, res) => {
   res.json({ message: 'تم الحذف' });
 });
 
+// ===================== قضايا "قصة جنائية" =====================
+router.get('/detective-cases', (req, res) => {
+  const rows = db.prepare('SELECT * FROM detective_cases ORDER BY id').all();
+  res.json(rows.map(r => ({
+    id: r.id,
+    level: r.level,
+    story: r.story,
+    choices: JSON.parse(r.choices),
+    answer: r.answer
+  })));
+});
+
+router.post('/detective-cases',
+  body('level').isInt({ min: 1, max: 3 }),
+  body('story').trim().notEmpty(),
+  body('choices').isArray({ min: 2 }),
+  body('answer').trim().notEmpty(),
+  (req, res) => {
+    if (validationError(req, res)) return;
+    const { level, story, choices, answer } = req.body;
+    if (!choices.includes(answer)) {
+      return res.status(400).json({ error: 'الإجابة الصحيحة لازم تكون ضمن الخيارات' });
+    }
+    const { lastInsertRowid } = db.prepare(
+      'INSERT INTO detective_cases (level, story, choices, answer) VALUES (?, ?, ?, ?)'
+    ).run(level, story, JSON.stringify(choices), answer);
+    res.status(201).json({ id: lastInsertRowid });
+  }
+);
+
+router.put('/detective-cases/:id',
+  body('level').isInt({ min: 1, max: 3 }),
+  body('story').trim().notEmpty(),
+  body('choices').isArray({ min: 2 }),
+  body('answer').trim().notEmpty(),
+  (req, res) => {
+    if (validationError(req, res)) return;
+    const { level, story, choices, answer } = req.body;
+    if (!choices.includes(answer)) {
+      return res.status(400).json({ error: 'الإجابة الصحيحة لازم تكون ضمن الخيارات' });
+    }
+    const result = db.prepare(
+      'UPDATE detective_cases SET level = ?, story = ?, choices = ?, answer = ? WHERE id = ?'
+    ).run(level, story, JSON.stringify(choices), answer, req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: 'القضية غير موجودة' });
+    res.json({ message: 'تم التحديث' });
+  }
+);
+
+router.delete('/detective-cases/:id', (req, res) => {
+  const result = db.prepare('DELETE FROM detective_cases WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'القضية غير موجودة' });
+  res.json({ message: 'تم الحذف' });
+});
+
 module.exports = router;

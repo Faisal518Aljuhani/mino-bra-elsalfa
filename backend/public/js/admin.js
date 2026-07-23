@@ -46,6 +46,7 @@ function showDashboard(username) {
   loadCategories();
   loadQuestions();
   loadColumns();
+  loadCases();
   loadAdmins();
 }
 
@@ -270,6 +271,58 @@ $('addColumnForm').addEventListener('submit', async (e) => {
     e.target.reset();
     flash('تمت إضافة الخانة');
     loadColumns();
+  } catch (err) { flash(err.message, 'error'); }
+});
+
+// ===================== قصة جنائية =====================
+async function loadCases() {
+  try {
+    const cases = await api('/detective-cases');
+    const wrap = $('casesList');
+    if (cases.length === 0) {
+      wrap.innerHTML = '<p class="muted">ما فيه قضايا بعد.</p>';
+      return;
+    }
+    const levelLabel = { 1: 'سهل', 2: 'متوسط', 3: 'صعب' };
+    wrap.innerHTML = cases.map(c => `
+      <div class="q-item">
+        <div class="q-items">${escapeHtml(c.story)} <span class="chip">${levelLabel[c.level] || c.level}</span></div>
+        <div class="q-choices">الخيارات: ${escapeHtml(c.choices.join(' - '))}</div>
+        <div class="q-answer">الإجابة: ${escapeHtml(c.answer)}</div>
+        <div class="q-actions">
+          <button class="btn-sm btn-danger" data-delcase="${c.id}">حذف</button>
+        </div>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('[data-delcase]').forEach(el => {
+      el.addEventListener('click', async () => {
+        if (!confirm('حذف هذي القضية؟')) return;
+        try {
+          await api(`/detective-cases/${el.dataset.delcase}`, { method: 'DELETE' });
+          loadCases();
+        } catch (err) { flash(err.message, 'error'); }
+      });
+    });
+  } catch (err) { flash(err.message, 'error'); }
+}
+
+$('addCaseForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const choices = $('caseChoices').value.split(',').map(s => s.trim()).filter(Boolean);
+  const answer = $('caseAnswer').value.trim();
+  try {
+    await api('/detective-cases', {
+      method: 'POST',
+      body: JSON.stringify({
+        level: Number($('caseLevel').value),
+        story: $('caseStory').value.trim(),
+        choices,
+        answer
+      })
+    });
+    e.target.reset();
+    flash('تمت إضافة القضية');
+    loadCases();
   } catch (err) { flash(err.message, 'error'); }
 });
 

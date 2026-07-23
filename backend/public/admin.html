@@ -119,6 +119,7 @@ label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px
       <button data-tab="categories" class="active">فئات لمّة</button>
       <button data-tab="commonfactor">العامل المشترك</button>
       <button data-tab="letters">خانات لعبة الحروف</button>
+      <button data-tab="detective">قصة جنائية</button>
       <button data-tab="admins">المشرفين</button>
     </div>
 
@@ -178,6 +179,29 @@ label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px
         </form>
       </div>
       <div id="columnsList"></div>
+    </div>
+
+    <!-- ===== تبويب: قصة جنائية ===== -->
+    <div id="tab-detective" class="tab-panel hidden">
+      <div class="card">
+        <h2>إضافة قضية جديدة</h2>
+        <form id="addCaseForm">
+          <label>مستوى الصعوبة</label>
+          <select id="caseLevel">
+            <option value="1">1 - سهل</option>
+            <option value="2">2 - متوسط</option>
+            <option value="3">3 - صعب</option>
+          </select>
+          <label>نص القضية</label>
+          <textarea id="caseStory" rows="4" placeholder="اكتب تفاصيل القضية والأدلة هنا..." required></textarea>
+          <label>الخيارات الأربعة (افصل بينها بفاصلة ,)</label>
+          <input type="text" id="caseChoices" placeholder="مثال: الفاعل هو الحارس, لا يوجد فاعل, الفاعل هو الجار, السرقة وهمية" required>
+          <label>الإجابة الصحيحة (لازم تكون نفس نص أحد الخيارات بالضبط)</label>
+          <input type="text" id="caseAnswer" placeholder="مثال: الفاعل هو الحارس" required>
+          <button type="submit" class="btn-primary">إضافة القضية</button>
+        </form>
+      </div>
+      <div id="casesList"></div>
     </div>
 
     <!-- ===== تبويب: المشرفين ===== -->

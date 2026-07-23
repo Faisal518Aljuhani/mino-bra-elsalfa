@@ -72,6 +72,17 @@ app.get('/api/letters-categories', (req, res) => {
   res.json({ columns, defaultColumnIds, letters, roundSeconds });
 });
 
+// لعبة "قصة جنائية" — حل قضايا غامضة، لا تحتاج تسجيل دخول
+app.get('/api/detective-cases', (req, res) => {
+  const rows = db.prepare('SELECT * FROM detective_cases ORDER BY id').all();
+  res.json(rows.map(r => ({
+    level: r.level,
+    story: r.story,
+    choices: JSON.parse(r.choices),
+    answer: r.answer
+  })));
+});
+
 // ===== Socket.io مع نفس إعدادات CORS =====
 const io = new Server(server, {
   cors: { origin: allowedOrigin }

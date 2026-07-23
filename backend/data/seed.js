@@ -39,6 +39,18 @@ function seedIfEmpty() {
     });
     console.log(`🌱 تمت تعبئة ${columns.length} خانة في جدول لعبة الحروف`);
   }
+
+  const caseCount = db.prepare('SELECT COUNT(*) AS c FROM detective_cases').get().c;
+  if (caseCount === 0) {
+    const staticCases = require('./detective-cases');
+    const insertCase = db.prepare(
+      'INSERT INTO detective_cases (level, story, choices, answer) VALUES (?, ?, ?, ?)'
+    );
+    for (const c of staticCases) {
+      insertCase.run(c.level, c.story, JSON.stringify(c.choices), c.answer);
+    }
+    console.log(`🌱 تمت تعبئة ${staticCases.length} قضية في جدول قصة جنائية`);
+  }
 }
 
 module.exports = { seedIfEmpty };

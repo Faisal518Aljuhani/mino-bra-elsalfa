@@ -26,6 +26,10 @@ $('btn-mode-cf').addEventListener('click', () => {
   hide('view-home');
   if (typeof startCommonFactorMode === 'function') startCommonFactorMode();
 });
+$('btn-mode-detective').addEventListener('click', () => {
+  hide('view-home');
+  if (typeof startDetectiveMode === 'function') startDetectiveMode();
+});
 $('btn-mode-mafia').addEventListener('click', () => {
   hide('view-home');
   if (typeof startMafiaMode === 'function') startMafiaMode();
@@ -336,6 +340,7 @@ const ALL_TOP_VIEWS = [
   'view-home', 'view-auth',
   'view-local-setup', 'view-local-reveal', 'view-local-play', 'view-local-voting', 'view-local-results',
   'view-cf-play', 'view-cf-results',
+  'view-detective-setup', 'view-detective-play', 'view-detective-results',
   'view-mafia-setup', 'view-mafia-reveal', 'view-mafia-night', 'view-mafia-day', 'view-mafia-voting', 'view-mafia-results',
   'view-lobby', 'view-playing', 'view-voting', 'view-results',
   'view-letters-local-setup', 'view-letters-local-pass', 'view-letters-local-turn', 'view-letters-local-results', 'view-letters-local-gameover',
@@ -356,6 +361,8 @@ function navigateTo(target) {
     if (typeof startLocalMode === 'function') startLocalMode();
   } else if (target === 'cf') {
     if (typeof startCommonFactorMode === 'function') startCommonFactorMode();
+  } else if (target === 'detective') {
+    if (typeof startDetectiveMode === 'function') startDetectiveMode();
   } else if (target === 'mafia') {
     if (typeof startMafiaMode === 'function') startMafiaMode();
   } else if (target === 'letters-online') {
