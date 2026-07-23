@@ -49,4 +49,18 @@ async function createInvoice({ amountSAR, description, callbackUrl, successUrl }
   return data; // { id, status, url, amount, ... }
 }
 
-module.exports = { createInvoice };
+// يجيب تفاصيل فاتورة معينة مباشرة من Moyasar (نستخدمها للتأكد الحقيقي إن الفاتورة انسددت
+// قبل ما نضيف الكوينز، بدل ما نعتمد فقط على بيانات الـ webhook القادمة من المتصفح/الشبكة)
+async function getInvoice(invoiceId) {
+  const res = await fetch(`${MOYASAR_API_BASE}/invoices/${invoiceId}`, {
+    headers: { Authorization: authHeader() }
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = (data && data.message) || 'تعذر جلب بيانات الفاتورة من Moyasar';
+    throw new Error(msg);
+  }
+  return data; // { id, status, amount, ... }
+}
+
+module.exports = { createInvoice, getInvoice };
