@@ -6,10 +6,10 @@
 <title>لمّة - نسخة فيصل</title>
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8887829035671460"
-     crossorigin="anonymous"></script>
+
+<!-- Google AdSense: رقم الناشر معبّى (ca-pub-8887829035671460) -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8887829035671460" crossorigin="anonymous"></script>
 </head>
-  
 <body>
 
 <button id="btn-menu-toggle" class="menu-toggle" aria-label="القائمة" aria-expanded="false">
@@ -41,6 +41,7 @@
     <li data-nav="mafia"><span>🔪</span> لعبة المافيا</li>
     <li data-nav="letters-online"><span>🔤</span> حرف اسم حيوان (أونلاين)</li>
     <li data-nav="letters-local"><span>🔤</span> حرف اسم حيوان (جهاز واحد)</li>
+    <li data-nav="shop"><span>🪙</span> متجر لمّة كوين</li>
   </ul>
 </nav>
 
@@ -51,6 +52,17 @@
     <div class="eyebrow">لعبة الاستنتاج الاجتماعي</div>
     <h1>لمّة</h1>
     <div class="dev-credit">تطوير فيصل الجهني</div>
+  </div>
+
+  <!-- إعلان: أعلى الصفحة — يبان لكل زوار الموقع بغض النظر عن اللعبة -->
+  <div class="ad-slot ad-slot-top">
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-8887829035671460"
+         data-ad-slot="1111111111"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
   </div>
 
   <!-- ===== شاشة البداية: اختيار طريقة اللعب ===== -->
@@ -529,6 +541,68 @@
     </div>
   </div>
 
+  <!-- ===== متجر لمّة كوين ===== -->
+  <div id="view-shop" class="hidden">
+    <div class="dossier">
+      <h2>🪙 متجر لمّة كوين</h2>
+
+      <div id="shop-logged-out" class="hidden">
+        <p class="center-note">لازم تسجل دخولك أول عشان تشتري أو تفتح محتوى.</p>
+        <button class="btn-primary" id="btn-shop-goto-login">تسجيل الدخول</button>
+      </div>
+
+      <div id="shop-logged-in" class="hidden">
+        <div class="shop-wallet-bar">
+          <span>رصيدك:</span>
+          <strong id="shop-coin-balance">—</strong>
+          <span>🪙</span>
+        </div>
+        <div id="shop-sub-status" class="shop-sub-status"></div>
+
+        <h3 class="shop-section-title">باقات الكوينز</h3>
+        <div id="shop-packages" class="shop-cards"></div>
+
+        <h3 class="shop-section-title">👑 اشتراك لمّة بلس</h3>
+        <div id="shop-subscription-card" class="shop-cards"></div>
+
+        <h3 class="shop-section-title">فتح فئات لعبة لمّة</h3>
+        <div id="shop-categories-list" class="shop-unlock-list"></div>
+        <button class="btn-ghost" id="btn-shop-unlock-all-categories"></button>
+
+        <h3 class="shop-section-title">فتح قضايا قصة جنائية</h3>
+        <div id="shop-cases-list" class="shop-unlock-list"></div>
+        <button class="btn-ghost" id="btn-shop-unlock-all-cases"></button>
+
+        <h3 class="shop-section-title">عناصر إضافية</h3>
+        <div class="shop-unlock-list">
+          <div class="shop-unlock-row">
+            <span>🔪 لعبة المافيا</span>
+            <button class="btn-primary shop-buy-btn" id="btn-shop-unlock-mafia"></button>
+          </div>
+          <div class="shop-unlock-row">
+            <span>🚫 إزالة الإعلانات</span>
+            <button class="btn-primary shop-buy-btn" id="btn-shop-unlock-ads"></button>
+          </div>
+        </div>
+
+        <div id="shop-message"></div>
+      </div>
+
+      <button class="btn-ghost" id="btn-shop-back-home">الرجوع للرئيسية</button>
+    </div>
+  </div>
+
+  <!-- إعلان: قبل الفوتر — يبان بعد ما يخلص المستخدم يتصفح/يلعب -->
+  <div class="ad-slot ad-slot-bottom">
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-8887829035671460"
+         data-ad-slot="2222222222"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+
   <footer class="site-footer">
     <p>برمجة وتطوير: <strong>Faisal ALjuhani</strong></p>
     <a href="https://instagram.com/f99oi_" target="_blank" rel="noopener noreferrer" class="footer-ig">
@@ -541,6 +615,7 @@
 </div>
 
 <script src="js/app.js"></script>
+<script src="js/shop.js"></script>
 <script src="js/local.js"></script>
 <script src="js/commonfactor.js"></script>
 <script src="js/detective.js"></script>
