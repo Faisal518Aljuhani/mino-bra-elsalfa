@@ -31,10 +31,10 @@ router.get('/config', (req, res) => {
 });
 
 // ===== محفظة المستخدم =====
-router.get('/wallet', requireAuth, (req, res) => {
-  const wallet = ensureWallet(req.user.id);
-  const sub = getSubscription(req.user.id);
-  const access = getUserAccess(req.user.id);
+router.get('/wallet', requireAuth, async (req, res) => {
+  const wallet = await ensureWallet(req.user.id);
+  const sub = await getSubscription(req.user.id);
+  const access = await getUserAccess(req.user.id);
 
   res.json({
     coins: wallet.coins,
@@ -82,7 +82,7 @@ function buildCartLines(items) {
 
 // ===== معاينة السلة + الكوبون قبل الدفع (يحسب السيرفر الإجمالي، ما يوثق بأرقام الواجهة) =====
 // body: { items: [...], couponCode? }
-router.post('/cart/preview', requireAuth, couponLimiter, (req, res) => {
+router.post('/cart/preview', requireAuth, couponLimiter, async (req, res) => {
   const { items, couponCode } = req.body || {};
 
   const built = buildCartLines(items);
@@ -92,7 +92,7 @@ router.post('/cart/preview', requireAuth, couponLimiter, (req, res) => {
   let couponMessage = null;
 
   if (couponCode) {
-    const result = validateCoupon(couponCode, req.user.id);
+    const result = await validateCoupon(couponCode, req.user.id);
     if (result.error) return res.status(400).json({ error: result.error });
     discountSAR = computeDiscount(built.subtotal, result.coupon);
     couponMessage = `تم تطبيق كوبون ${result.coupon.code}`;
@@ -115,7 +115,7 @@ router.post('/checkout', requireAuth, checkoutLimiter, async (req, res) => {
     let discountSAR = 0;
 
     if (couponCode) {
-      const result = validateCoupon(couponCode, req.user.id);
+      const result = await validateCoupon(couponCode, req.user.id);
       if (result.error) return res.status(400).json({ error: result.error });
       coupon = result.coupon;
       discountSAR = computeDiscount(built.subtotal, coupon);
@@ -133,7 +133,7 @@ router.post('/checkout', requireAuth, checkoutLimiter, async (req, res) => {
       successUrl: `${baseUrl}/?shop=success`
     });
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO payments (user_id, moyasar_invoice_id, kind, reference, amount_halalas, status, cart_items, coupon_code, discount_halalas)
       VALUES (?, ?, 'cart', 'cart', ?, 'initiated', ?, ?, ?)
     `).run(
@@ -154,7 +154,7 @@ router.post('/checkout', requireAuth, checkoutLimiter, async (req, res) => {
 
 // ===== إشعار Moyasar عند اكتمال الدفع (Webhook) =====
 // ملاحظة: هذا المسار عام (بدون requireAuth) لأن Moyasar هي اللي تستدعيه، وليس المستخدم
-router.post('/webhook', (req, res) => {
+router.post('/webhook', async (req, res) => {
   const payload = req.body || {};
 
   // تحقق من التوكن السري عشان نتأكد إن الطلب فعلاً من Moyasar
@@ -170,16 +170,16 @@ router.post('/webhook', (req, res) => {
     const payment = payload.data;
     if (!payment || !payment.invoice_id) return;
 
-    const row = db.prepare('SELECT * FROM payments WHERE moyasar_invoice_id = ?').get(payment.invoice_id);
+    const row = await db.prepare('SELECT * FROM payments WHERE moyasar_invoice_id = ?').get(payment.invoice_id);
     if (!row) return console.warn('استلمنا webhook لفاتورة مو موجودة عندنا:', payment.invoice_id);
     if (row.status === 'paid') return; // معالج مسبقاً (idempotency)
 
-    db.prepare(`UPDATE payments SET status = 'paid', updated_at = strftime('%s','now') WHERE id = ?`).run(row.id);
+    await db.prepare(`UPDATE payments SET status = 'paid', updated_at = strftime('%s','now') WHERE id = ?`).run(row.id);
 
     // تسجيل استخدام الكوبون بعد نجاح الدفع الفعلي فقط (مو وقت إنشاء الفاتورة)
     if (row.coupon_code) {
-      const c = db.prepare('SELECT * FROM coupons WHERE code = ?').get(row.coupon_code);
-      if (c) redeemCoupon(c.id, row.user_id);
+      const c = await db.prepare('SELECT * FROM coupons WHERE code = ?').get(row.coupon_code);
+      if (c) await redeemCoupon(c.id, row.user_id);
     }
 
     let cartItems = null;
@@ -189,59 +189,59 @@ router.post('/webhook', (req, res) => {
       for (const item of cartItems) {
         if (item.kind === 'coins') {
           const pkg = findPackage(item.reference);
-          if (pkg) creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
+          if (pkg) await creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
         } else if (item.kind === 'subscription') {
-          activateSubscription(row.user_id);
+          await activateSubscription(row.user_id);
         }
       }
     } else if (row.kind === 'coins') {
       // توافق مع فواتير قديمة أُنشئت قبل تحديث السلة (كانت تخزن kind/reference مباشرة)
       const pkg = findPackage(row.reference);
-      if (pkg) creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
+      if (pkg) await creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
     } else if (row.kind === 'subscription') {
-      activateSubscription(row.user_id);
+      await activateSubscription(row.user_id);
     }
   } catch (err) {
     console.error('خطأ معالجة webhook Moyasar:', err);
   }
 });
 
-function creditCoins(userId, amount, reason, reference) {
-  ensureWallet(userId);
-  db.prepare('UPDATE wallets SET coins = coins + ?, updated_at = strftime(\'%s\',\'now\') WHERE user_id = ?').run(amount, userId);
-  db.prepare('INSERT INTO coin_transactions (user_id, amount, reason, reference) VALUES (?, ?, ?, ?)')
+async function creditCoins(userId, amount, reason, reference) {
+  await ensureWallet(userId);
+  await db.prepare('UPDATE wallets SET coins = coins + ?, updated_at = strftime(\'%s\',\'now\') WHERE user_id = ?').run(amount, userId);
+  await db.prepare('INSERT INTO coin_transactions (user_id, amount, reason, reference) VALUES (?, ?, ?, ?)')
     .run(userId, amount, reason, reference || null);
 }
 
-function activateSubscription(userId) {
+async function activateSubscription(userId) {
   const periodEnd = nowSeconds() + SUBSCRIPTION.durationDays * 24 * 60 * 60;
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-  const existing = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(userId);
+  const existing = await db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(userId);
   if (existing) {
-    db.prepare(`
+    await db.prepare(`
       UPDATE subscriptions
       SET status = 'active', current_period_end = ?, updated_at = strftime('%s','now')
       WHERE user_id = ?
     `).run(periodEnd, userId);
   } else {
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO subscriptions (user_id, status, current_period_end, last_gift_period)
       VALUES (?, 'active', ?, ?)
     `).run(userId, periodEnd, currentMonth);
   }
 
   // هدية الكوينز الشهرية — تُمنح مرة وحدة بالشهر فقط
-  const sub = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(userId);
+  const sub = await db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(userId);
   if (sub.last_gift_period !== currentMonth) {
-    creditCoins(userId, SUBSCRIPTION.monthlyGiftCoins, 'subscription_gift', currentMonth);
-    db.prepare('UPDATE subscriptions SET last_gift_period = ? WHERE user_id = ?').run(currentMonth, userId);
+    await creditCoins(userId, SUBSCRIPTION.monthlyGiftCoins, 'subscription_gift', currentMonth);
+    await db.prepare('UPDATE subscriptions SET last_gift_period = ? WHERE user_id = ?').run(currentMonth, userId);
   }
 }
 
 // ===== فتح محتوى مباشرة بالكوينز (بدون بوابة دفع) =====
 // body: { itemType: 'category'|'case'|'all_categories'|'all_cases'|'mafia'|'remove_ads', itemId? }
-router.post('/unlock', requireAuth, (req, res) => {
+router.post('/unlock', requireAuth, async (req, res) => {
   const { itemType, itemId } = req.body || {};
   const userId = req.user.id;
 
@@ -264,31 +264,31 @@ router.post('/unlock', requireAuth, (req, res) => {
 
   // تحقق العنصر موجود فعلياً (لفئة/قضية)
   if (itemType === 'category') {
-    const cat = db.prepare('SELECT id FROM categories WHERE id = ?').get(itemId);
+    const cat = await db.prepare('SELECT id FROM categories WHERE id = ?').get(itemId);
     if (!cat) return res.status(404).json({ error: 'الفئة غير موجودة' });
   } else if (itemType === 'case') {
-    const c = db.prepare('SELECT id FROM detective_cases WHERE id = ?').get(itemId);
+    const c = await db.prepare('SELECT id FROM detective_cases WHERE id = ?').get(itemId);
     if (!c) return res.status(404).json({ error: 'القضية غير موجودة' });
   }
 
   const finalItemId = needsId ? itemId : null;
 
   // امنع الشراء المكرر
-  const already = db.prepare('SELECT id FROM unlocks WHERE user_id = ? AND item_type = ? AND item_id IS ?')
+  const already = await db.prepare('SELECT id FROM unlocks WHERE user_id = ? AND item_type = ? AND item_id IS ?')
     .get(userId, itemType, finalItemId);
   if (already) return res.status(409).json({ error: 'هذا العنصر مفتوح مسبقاً' });
 
-  const wallet = ensureWallet(userId);
+  const wallet = await ensureWallet(userId);
   if (wallet.coins < price) {
     return res.status(402).json({ error: 'رصيد الكوينز غير كافي', needed: price, have: wallet.coins });
   }
 
-  db.prepare('UPDATE wallets SET coins = coins - ?, updated_at = strftime(\'%s\',\'now\') WHERE user_id = ?').run(price, userId);
-  db.prepare('INSERT INTO coin_transactions (user_id, amount, reason, reference) VALUES (?, ?, ?, ?)')
+  await db.prepare('UPDATE wallets SET coins = coins - ?, updated_at = strftime(\'%s\',\'now\') WHERE user_id = ?').run(price, userId);
+  await db.prepare('INSERT INTO coin_transactions (user_id, amount, reason, reference) VALUES (?, ?, ?, ?)')
     .run(userId, -price, 'spend', `${itemType}:${finalItemId ?? 'all'}`);
-  db.prepare('INSERT INTO unlocks (user_id, item_type, item_id) VALUES (?, ?, ?)').run(userId, itemType, finalItemId);
+  await db.prepare('INSERT INTO unlocks (user_id, item_type, item_id) VALUES (?, ?, ?)').run(userId, itemType, finalItemId);
 
-  const updatedWallet = db.prepare('SELECT coins FROM wallets WHERE user_id = ?').get(userId);
+  const updatedWallet = await db.prepare('SELECT coins FROM wallets WHERE user_id = ?').get(userId);
   res.json({ ok: true, remainingCoins: updatedWallet.coins });
 });
 
