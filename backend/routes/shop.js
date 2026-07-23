@@ -159,8 +159,11 @@ router.post('/webhook', async (req, res) => {
 
   // تحقق من التوكن السري عشان نتأكد إن الطلب فعلاً من Moyasar
   if (!process.env.MOYASAR_WEBHOOK_SECRET || payload.secret_token !== process.env.MOYASAR_WEBHOOK_SECRET) {
+    console.warn('🔔 webhook مرفوض: توكن سري غير متطابق. المستلم:', payload.secret_token, '| المتوقع مضبوط:', !!process.env.MOYASAR_WEBHOOK_SECRET);
     return res.status(401).json({ error: 'توكن غير صحيح' });
   }
+
+  console.log('🔔 webhook مقبول، نوع الحدث:', payload.type);
 
   // نرد 2xx بسرعة دائماً (موصى به من توثيق Moyasar) حتى لو الحدث مو اللي نهتم فيه
   res.status(200).json({ received: true });
@@ -171,8 +174,8 @@ router.post('/webhook', async (req, res) => {
     if (!payment || !payment.invoice_id) return;
 
     const row = await db.prepare('SELECT * FROM payments WHERE moyasar_invoice_id = ?').get(payment.invoice_id);
-    if (!row) return console.warn('استلمنا webhook لفاتورة مو موجودة عندنا:', payment.invoice_id);
-    if (row.status === 'paid') return; // معالج مسبقاً (idempotency)
+    if (!row) return console.warn('🔔 استلمنا webhook لفاتورة مو موجودة عندنا:', payment.invoice_id);
+    if (row.status === 'paid') return console.log('🔔 هذي الفاتورة اتعالجت من قبل (idempotency):', payment.invoice_id);
 
     await db.prepare(`UPDATE payments SET status = 'paid', updated_at = strftime('%s','now') WHERE id = ?`).run(row.id);
 
@@ -201,6 +204,8 @@ router.post('/webhook', async (req, res) => {
     } else if (row.kind === 'subscription') {
       await activateSubscription(row.user_id);
     }
+
+    console.log('✅ تمت معالجة الدفعة وإضافة المحتوى للمستخدم:', row.user_id, 'فاتورة:', payment.invoice_id);
   } catch (err) {
     console.error('خطأ معالجة webhook Moyasar:', err);
   }
