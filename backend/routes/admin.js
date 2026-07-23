@@ -126,24 +126,27 @@ router.get('/categories', (req, res) => {
 
 router.post('/categories',
   body('name').trim().isLength({ min: 1, max: 60 }),
+  body('is_free').optional().isBoolean(),
   (req, res) => {
     if (validationError(req, res)) return;
-    const { name } = req.body;
+    const { name, is_free } = req.body;
     const existing = db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
     if (existing) return res.status(409).json({ error: 'القسم موجود من قبل' });
 
     const maxOrder = db.prepare('SELECT MAX(sort_order) AS m FROM categories').get().m || 0;
-    const { lastInsertRowid } = db.prepare('INSERT INTO categories (name, sort_order) VALUES (?, ?)')
-      .run(name, maxOrder + 1);
+    const { lastInsertRowid } = db.prepare('INSERT INTO categories (name, sort_order, is_free) VALUES (?, ?, ?)')
+      .run(name, maxOrder + 1, is_free ? 1 : 0);
     res.status(201).json({ id: lastInsertRowid, name });
   }
 );
 
 router.put('/categories/:id',
   body('name').trim().isLength({ min: 1, max: 60 }),
+  body('is_free').optional().isBoolean(),
   (req, res) => {
     if (validationError(req, res)) return;
-    const result = db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(req.body.name, req.params.id);
+    const result = db.prepare('UPDATE categories SET name = ?, is_free = ? WHERE id = ?')
+      .run(req.body.name, req.body.is_free ? 1 : 0, req.params.id);
     if (result.changes === 0) return res.status(404).json({ error: 'القسم غير موجود' });
     res.json({ message: 'تم التحديث' });
   }
@@ -339,5 +342,152 @@ router.delete('/detective-cases/:id', (req, res) => {
   if (result.changes === 0) return res.status(404).json({ error: 'القضية غير موجودة' });
   res.json({ message: 'تم الحذف' });
 });
+
+// ===================== المتجر: بحث المستخدمين وصلاحياتهم =====================
+router.get('/shop/users', (req, res) => {
+  const q = (req.query.q || '').trim();
+  let users;
+  if (q) {
+    users = db.prepare(
+      'SELECT id, username, email FROM users WHERE username LIKE ? OR email LIKE ? ORDER BY id DESC LIMIT 20'
+    ).all(`%${q}%`, `%${q}%`);
+  } else {
+    users = db.prepare('SELECT id, username, email FROM users ORDER BY id DESC LIMIT 20').all();
+  }
+
+  const result = users.map(u => {
+    const wallet = db.prepare('SELECT coins FROM wallets WHERE user_id = ?').get(u.id);
+    const sub = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(u.id);
+    const unlocks = db.prepare('SELECT item_type, item_id FROM unlocks WHERE user_id = ?').all(u.id);
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      id: u.id,
+      username: u.username,
+      email: u.email,
+      coins: wallet ? wallet.coins : 0,
+      subscriptionActive: !!(sub && sub.status === 'active' && sub.current_period_end > now),
+      subscriptionPeriodEnd: sub ? sub.current_period_end : null,
+      unlocks
+    };
+  });
+
+  res.json(result);
+});
+
+// ===== سجل المدفوعات (للمراجعة والدعم الفني) =====
+router.get('/shop/payments', (req, res) => {
+  const rows = db.prepare(`
+    SELECT p.*, u.username
+    FROM payments p JOIN users u ON u.id = p.user_id
+    ORDER BY p.id DESC LIMIT 50
+  `).all();
+  res.json(rows);
+});
+
+// ===== إضافة/خصم كوينز يدوياً (دعم فني: دفعة فشلت، تعويض، إلخ) =====
+router.post('/shop/grant-coins',
+  body('userId').isInt(),
+  body('amount').isInt().custom(v => v !== 0).withMessage('لازم رقم غير صفر'),
+  body('reason').trim().isLength({ min: 1, max: 100 }),
+  (req, res) => {
+    if (validationError(req, res)) return;
+    const { userId, amount, reason } = req.body;
+
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    db.prepare('INSERT OR IGNORE INTO wallets (user_id, coins) VALUES (?, 0)').run(userId);
+    const wallet = db.prepare('SELECT coins FROM wallets WHERE user_id = ?').get(userId);
+    if (wallet.coins + amount < 0) {
+      return res.status(400).json({ error: 'ما يصير الرصيد يصير سالب' });
+    }
+
+    db.prepare('UPDATE wallets SET coins = coins + ?, updated_at = strftime(\'%s\',\'now\') WHERE user_id = ?').run(amount, userId);
+    db.prepare('INSERT INTO coin_transactions (user_id, amount, reason, reference) VALUES (?, ?, ?, ?)')
+      .run(userId, amount, 'admin_adjust', `${reason} (بواسطة: ${req.admin.username})`);
+
+    const updated = db.prepare('SELECT coins FROM wallets WHERE user_id = ?').get(userId);
+    res.json({ ok: true, coins: updated.coins });
+  }
+);
+
+// ===== منح اشتراك "لمّة بلس" يدوياً (تعويض/دعم فني) =====
+router.post('/shop/grant-subscription',
+  body('userId').isInt(),
+  body('days').isInt({ min: 1, max: 365 }),
+  (req, res) => {
+    if (validationError(req, res)) return;
+    const { userId, days } = req.body;
+
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    const now = Math.floor(Date.now() / 1000);
+    const existing = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').get(userId);
+    const base = existing && existing.current_period_end > now ? existing.current_period_end : now;
+    const periodEnd = base + days * 24 * 60 * 60;
+
+    if (existing) {
+      db.prepare(`UPDATE subscriptions SET status = 'active', current_period_end = ?, updated_at = strftime('%s','now') WHERE user_id = ?`)
+        .run(periodEnd, userId);
+    } else {
+      db.prepare(`INSERT INTO subscriptions (user_id, status, current_period_end) VALUES (?, 'active', ?)`)
+        .run(userId, periodEnd);
+    }
+    res.json({ ok: true, subscriptionPeriodEnd: periodEnd });
+  }
+);
+
+// ===== إلغاء الاشتراك يدوياً =====
+router.post('/shop/revoke-subscription',
+  body('userId').isInt(),
+  (req, res) => {
+    if (validationError(req, res)) return;
+    const result = db.prepare(`UPDATE subscriptions SET status = 'inactive', updated_at = strftime('%s','now') WHERE user_id = ?`)
+      .run(req.body.userId);
+    if (result.changes === 0) return res.status(404).json({ error: 'ما فيه اشتراك لهذا المستخدم' });
+    res.json({ ok: true });
+  }
+);
+
+// ===== منح عنصر مفتوح يدوياً (مافيا، إزالة إعلانات، كل الفئات، كل القضايا، فئة/قضية محددة) =====
+router.post('/shop/grant-unlock',
+  body('userId').isInt(),
+  body('itemType').isIn(['category', 'case', 'all_categories', 'all_cases', 'mafia', 'remove_ads']),
+  body('itemId').optional({ nullable: true }).isInt(),
+  (req, res) => {
+    if (validationError(req, res)) return;
+    const { userId, itemType } = req.body;
+    const needsId = itemType === 'category' || itemType === 'case';
+    const itemId = needsId ? req.body.itemId : null;
+    if (needsId && !Number.isInteger(itemId)) return res.status(400).json({ error: 'رقم العنصر مطلوب' });
+
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+    try {
+      db.prepare('INSERT INTO unlocks (user_id, item_type, item_id) VALUES (?, ?, ?)').run(userId, itemType, itemId);
+    } catch (e) {
+      return res.status(409).json({ error: 'هذا العنصر مفتوح مسبقاً لهذا المستخدم' });
+    }
+    res.json({ ok: true });
+  }
+);
+
+// ===== سحب عنصر مفتوح (تصحيح خطأ) =====
+router.post('/shop/revoke-unlock',
+  body('userId').isInt(),
+  body('itemType').trim().notEmpty(),
+  body('itemId').optional({ nullable: true }).isInt(),
+  (req, res) => {
+    if (validationError(req, res)) return;
+    const { userId, itemType } = req.body;
+    const itemId = req.body.itemId ?? null;
+    const result = db.prepare('DELETE FROM unlocks WHERE user_id = ? AND item_type = ? AND item_id IS ?')
+      .run(userId, itemType, itemId);
+    if (result.changes === 0) return res.status(404).json({ error: 'العنصر غير موجود عند هذا المستخدم' });
+    res.json({ ok: true });
+  }
+);
 
 module.exports = router;
