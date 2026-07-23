@@ -5,6 +5,7 @@ const { requireAuth } = require('../utils/authMiddleware');
 const { ensureWallet, getSubscription, getUserAccess, nowSeconds } = require('../utils/entitlements');
 const { COIN_PACKAGES, PRICES, SUBSCRIPTION, findPackage } = require('../data/shop-config');
 const { createInvoice } = require('../utils/moyasar');
+const { validateCoupon, computeDiscount, redeemCoupon } = require('../utils/coupons');
 
 const router = express.Router();
 
@@ -12,6 +13,14 @@ const checkoutLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 20,
   message: { error: 'محاولات دفع كثيرة، حاول بعد شوي' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const couponLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  message: { error: 'محاولات كثيرة، حاول بعد شوي' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -40,40 +49,101 @@ router.get('/wallet', requireAuth, (req, res) => {
   });
 });
 
-// ===== بدء عملية دفع حقيقية عبر Moyasar =====
-// body: { kind: 'coins', packageId } أو { kind: 'subscription' }
+// ===== بناء عناصر السلة والتحقق منها =====
+// items: [{ kind: 'coins', packageId }] أو [{ kind: 'subscription' }]
+function buildCartLines(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { error: 'السلة فاضية' };
+  }
+  if (items.length > 10) {
+    return { error: 'عدد عناصر السلة كبير جداً' };
+  }
+
+  const lines = [];
+  let subtotal = 0;
+
+  for (const raw of items) {
+    const kind = raw && raw.kind;
+    if (kind === 'coins') {
+      const pkg = findPackage(raw.packageId);
+      if (!pkg) return { error: 'باقة كوينز غير صحيحة' };
+      lines.push({ kind: 'coins', reference: pkg.id, amountSAR: pkg.priceSAR, label: `شحن ${pkg.coins} كوين` });
+      subtotal += pkg.priceSAR;
+    } else if (kind === 'subscription') {
+      lines.push({ kind: 'subscription', reference: SUBSCRIPTION.id, amountSAR: SUBSCRIPTION.priceSAR, label: 'اشتراك لمّة بلس (شهري)' });
+      subtotal += SUBSCRIPTION.priceSAR;
+    } else {
+      return { error: 'نوع عنصر غير صحيح بالسلة' };
+    }
+  }
+
+  return { lines, subtotal: Math.round(subtotal * 100) / 100 };
+}
+
+// ===== معاينة السلة + الكوبون قبل الدفع (يحسب السيرفر الإجمالي، ما يوثق بأرقام الواجهة) =====
+// body: { items: [...], couponCode? }
+router.post('/cart/preview', requireAuth, couponLimiter, (req, res) => {
+  const { items, couponCode } = req.body || {};
+
+  const built = buildCartLines(items);
+  if (built.error) return res.status(400).json({ error: built.error });
+
+  let discountSAR = 0;
+  let couponMessage = null;
+
+  if (couponCode) {
+    const result = validateCoupon(couponCode, req.user.id);
+    if (result.error) return res.status(400).json({ error: result.error });
+    discountSAR = computeDiscount(built.subtotal, result.coupon);
+    couponMessage = `تم تطبيق كوبون ${result.coupon.code}`;
+  }
+
+  const total = Math.max(Math.round((built.subtotal - discountSAR) * 100) / 100, 0);
+  res.json({ subtotal: built.subtotal, discount: discountSAR, total, couponMessage });
+});
+
+// ===== بدء عملية دفع حقيقية عبر Moyasar (سلة تدعم أكثر من عنصر + كوبون اختياري) =====
+// body: { items: [{ kind: 'coins', packageId }] أو [{ kind: 'subscription' }], couponCode? }
 router.post('/checkout', requireAuth, checkoutLimiter, async (req, res) => {
-  const { kind } = req.body || {};
+  const { items, couponCode } = req.body || {};
+
+  const built = buildCartLines(items);
+  if (built.error) return res.status(400).json({ error: built.error });
 
   try {
-    let amountSAR, description, reference;
+    let coupon = null;
+    let discountSAR = 0;
 
-    if (kind === 'coins') {
-      const pkg = findPackage(req.body.packageId);
-      if (!pkg) return res.status(400).json({ error: 'باقة كوينز غير صحيحة' });
-      amountSAR = pkg.priceSAR;
-      description = `شحن ${pkg.coins} كوين - لمّة`;
-      reference = pkg.id;
-    } else if (kind === 'subscription') {
-      amountSAR = SUBSCRIPTION.priceSAR;
-      description = 'اشتراك لمّة بلس (شهري)';
-      reference = SUBSCRIPTION.id;
-    } else {
-      return res.status(400).json({ error: 'نوع عملية غير صحيح' });
+    if (couponCode) {
+      const result = validateCoupon(couponCode, req.user.id);
+      if (result.error) return res.status(400).json({ error: result.error });
+      coupon = result.coupon;
+      discountSAR = computeDiscount(built.subtotal, coupon);
     }
+
+    // الحد الأدنى المقبول من Moyasar ريال واحد، حتى لو الخصم غطى كل المبلغ
+    const finalAmountSAR = Math.max(Math.round((built.subtotal - discountSAR) * 100) / 100, 1);
+    const description = built.lines.map(l => l.label).join(' + ');
 
     const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
     const invoice = await createInvoice({
-      amountSAR,
+      amountSAR: finalAmountSAR,
       description,
       callbackUrl: `${baseUrl}/api/shop/webhook`,
       successUrl: `${baseUrl}/?shop=success`
     });
 
     db.prepare(`
-      INSERT INTO payments (user_id, moyasar_invoice_id, kind, reference, amount_halalas, status)
-      VALUES (?, ?, ?, ?, ?, 'initiated')
-    `).run(req.user.id, invoice.id, kind, reference, Math.round(amountSAR * 100));
+      INSERT INTO payments (user_id, moyasar_invoice_id, kind, reference, amount_halalas, status, cart_items, coupon_code, discount_halalas)
+      VALUES (?, ?, 'cart', 'cart', ?, 'initiated', ?, ?, ?)
+    `).run(
+      req.user.id,
+      invoice.id,
+      Math.round(finalAmountSAR * 100),
+      JSON.stringify(built.lines),
+      coupon ? coupon.code : null,
+      Math.round(discountSAR * 100)
+    );
 
     res.json({ url: invoice.url });
   } catch (err) {
@@ -106,7 +176,26 @@ router.post('/webhook', (req, res) => {
 
     db.prepare(`UPDATE payments SET status = 'paid', updated_at = strftime('%s','now') WHERE id = ?`).run(row.id);
 
-    if (row.kind === 'coins') {
+    // تسجيل استخدام الكوبون بعد نجاح الدفع الفعلي فقط (مو وقت إنشاء الفاتورة)
+    if (row.coupon_code) {
+      const c = db.prepare('SELECT * FROM coupons WHERE code = ?').get(row.coupon_code);
+      if (c) redeemCoupon(c.id, row.user_id);
+    }
+
+    let cartItems = null;
+    try { cartItems = row.cart_items ? JSON.parse(row.cart_items) : null; } catch (e) { cartItems = null; }
+
+    if (cartItems) {
+      for (const item of cartItems) {
+        if (item.kind === 'coins') {
+          const pkg = findPackage(item.reference);
+          if (pkg) creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
+        } else if (item.kind === 'subscription') {
+          activateSubscription(row.user_id);
+        }
+      }
+    } else if (row.kind === 'coins') {
+      // توافق مع فواتير قديمة أُنشئت قبل تحديث السلة (كانت تخزن kind/reference مباشرة)
       const pkg = findPackage(row.reference);
       if (pkg) creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
     } else if (row.kind === 'subscription') {
