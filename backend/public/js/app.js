@@ -82,14 +82,14 @@ $('form-register').addEventListener('submit', async (e) => {
 // ===================== تسجيل الدخول =====================
 $('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = $('login-email').value.trim();
+  const username = $('login-username').value.trim();
   const password = $('login-password').value;
 
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ username, password })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'حدث خطأ');
@@ -118,10 +118,38 @@ $('form-forgot').addEventListener('submit', async (e) => {
   }
 });
 
+// ===================== زاوية تسجيل الدخول (أعلى اليمين) =====================
+function updateCornerAuth() {
+  if (currentUser) {
+    hide('btn-corner-login');
+    show('corner-user');
+    $('corner-username').textContent = currentUser.username;
+  } else {
+    show('btn-corner-login');
+    hide('corner-user');
+  }
+}
+
+$('btn-corner-login').addEventListener('click', () => {
+  if (currentUser) return;
+  hideAllTopViews();
+  show('view-auth');
+});
+
+$('btn-corner-logout').addEventListener('click', () => {
+  clearToken();
+  currentUser = null;
+  if (socket) { socket.disconnect(); socket = null; }
+  updateCornerAuth();
+  hideAllTopViews();
+  show('view-home');
+});
+
 // ===================== الدخول للتطبيق بعد تسجيل الدخول =====================
 function enterApp() {
   hide('view-home');
   hide('view-auth');
+  updateCornerAuth();
   connectSocket();
 
   // لو المستخدم كان يبي يدخل لعبة الحروف أونلاين قبل ما يسجل دخوله، نوجهه لها مباشرة

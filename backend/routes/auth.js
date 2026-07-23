@@ -85,7 +85,7 @@ router.get('/verify/:token', (req, res) => {
 // ===== تسجيل الدخول =====
 router.post('/login',
   authLimiter,
-  body('email').trim().isEmail().normalizeEmail(),
+  body('username').trim().notEmpty(),
   body('password').notEmpty(),
   async (req, res) => {
     const errors = validationResult(req);
@@ -93,11 +93,11 @@ router.post('/login',
       return res.status(400).json({ error: 'بيانات غير صحيحة' });
     }
 
-    const { email, password } = req.body;
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const { username, password } = req.body;
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
 
-    // رسالة عامة موحّدة عشان ما نكشف هل الإيميل موجود أو لا
-    const genericError = { error: 'البريد أو كلمة المرور غير صحيحة' };
+    // رسالة عامة موحّدة عشان ما نكشف هل اسم المستخدم موجود أو لا
+    const genericError = { error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
 
     if (!user) return res.status(401).json(genericError);
 
