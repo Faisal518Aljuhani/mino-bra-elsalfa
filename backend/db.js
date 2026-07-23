@@ -84,6 +84,35 @@ CREATE TABLE IF NOT EXISTS payments (
   updated_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
+// كوبونات الخصم (تُستخدم عند شراء باقات كوينز أو الاشتراك)
+db.exec(`
+CREATE TABLE IF NOT EXISTS coupons (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT UNIQUE NOT NULL,
+  discount_type TEXT NOT NULL DEFAULT 'percent', -- 'percent' | 'fixed'
+  discount_value REAL NOT NULL,
+  max_uses INTEGER,                 -- فاضي = بدون حد أقصى لعدد مرات الاستخدام
+  used_count INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  expires_at INTEGER,               -- طابع زمني بالثواني، فاضي = بدون تاريخ انتهاء
+  created_at INTEGER DEFAULT (strftime('%s','now'))
+)`);
+
+// سجل استخدام كل كوبون لكل مستخدم — يمنع نفس المستخدم يستخدم نفس الكوبون مرتين
+db.exec(`
+CREATE TABLE IF NOT EXISTS coupon_redemptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  coupon_id INTEGER NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER DEFAULT (strftime('%s','now')),
+  UNIQUE(coupon_id, user_id)
+)`);
+
+// هجرة: أعمدة السلة والكوبون بجدول المدفوعات (لقواعد بيانات كانت موجودة قبل ميزة السلة)
+try { db.exec('ALTER TABLE payments ADD COLUMN cart_items TEXT'); } catch (e) { /* موجود مسبقاً */ }
+try { db.exec('ALTER TABLE payments ADD COLUMN coupon_code TEXT'); } catch (e) { /* موجود مسبقاً */ }
+try { db.exec('ALTER TABLE payments ADD COLUMN discount_halalas INTEGER DEFAULT 0'); } catch (e) { /* موجود مسبقاً */ }
+
 // ===== جداول لوحة تحكم المشرف =====
 
 // حسابات المشرفين (منفصلة تماماً عن حسابات اللاعبين العاديين)
