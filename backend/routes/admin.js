@@ -37,7 +37,7 @@ router.post('/login',
     if (validationError(req, res)) return;
 
     const { username, password } = req.body;
-    const admin = db.prepare('SELECT * FROM admins WHERE username = ?').get(username);
+    const admin = await db.prepare('SELECT * FROM admins WHERE username = ?').get(username);
 
     const genericError = { error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
     if (!admin) return res.status(401).json(genericError);
@@ -51,15 +51,15 @@ router.post('/login',
     if (!match) {
       const attempts = admin.failed_login_attempts + 1;
       if (attempts >= MAX_FAILED_ATTEMPTS) {
-        db.prepare('UPDATE admins SET failed_login_attempts = 0, locked_until = ? WHERE id = ?')
+        await db.prepare('UPDATE admins SET failed_login_attempts = 0, locked_until = ? WHERE id = ?')
           .run(Date.now() + LOCK_TIME_MS, admin.id);
         return res.status(423).json({ error: 'محاولات فاشلة كثيرة، الحساب مقفل 15 دقيقة' });
       }
-      db.prepare('UPDATE admins SET failed_login_attempts = ? WHERE id = ?').run(attempts, admin.id);
+      await db.prepare('UPDATE admins SET failed_login_attempts = ? WHERE id = ?').run(attempts, admin.id);
       return res.status(401).json(genericError);
     }
 
-    db.prepare('UPDATE admins SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(admin.id);
+    await db.prepare('UPDATE admins SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(admin.id);
     const token = signAdminToken(admin);
     res.json({ token, username: admin.username });
   }
@@ -73,8 +73,8 @@ router.get('/me', requireAdmin, (req, res) => {
 router.use(requireAdmin);
 
 // ===================== إدارة المشرفين =====================
-router.get('/admins', (req, res) => {
-  const admins = db.prepare('SELECT id, username, created_at FROM admins ORDER BY id').all();
+router.get('/admins', async (req, res) => {
+  const admins = await db.prepare('SELECT id, username, created_at FROM admins ORDER BY id').all();
   res.json(admins);
 });
 
@@ -85,11 +85,11 @@ router.post('/admins',
     if (validationError(req, res)) return;
     const { username, password } = req.body;
 
-    const existing = db.prepare('SELECT id FROM admins WHERE username = ?').get(username);
+    const existing = await db.prepare('SELECT id FROM admins WHERE username = ?').get(username);
     if (existing) return res.status(409).json({ error: 'اسم المستخدم مستخدم من قبل' });
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const { lastInsertRowid } = db.prepare(
+    const { lastInsertRowid } = await db.prepare(
       'INSERT INTO admins (username, password_hash, created_by) VALUES (?, ?, ?)'
     ).run(username, passwordHash, req.admin.id);
 
@@ -97,27 +97,27 @@ router.post('/admins',
   }
 );
 
-router.delete('/admins/:id', (req, res) => {
+router.delete('/admins/:id', async (req, res) => {
   const id = Number(req.params.id);
 
   if (id === req.admin.id) {
     return res.status(400).json({ error: 'ما تقدر تحذف حسابك أنت وأنت داخل فيه' });
   }
 
-  const total = db.prepare('SELECT COUNT(*) AS c FROM admins').get().c;
+  const total = (await db.prepare('SELECT COUNT(*) AS c FROM admins').get()).c;
   if (total <= 1) {
     return res.status(400).json({ error: 'لازم يبقى مشرف واحد على الأقل' });
   }
 
-  const result = db.prepare('DELETE FROM admins WHERE id = ?').run(id);
+  const result = await db.prepare('DELETE FROM admins WHERE id = ?').run(id);
   if (result.changes === 0) return res.status(404).json({ error: 'المشرف غير موجود' });
   res.json({ message: 'تم حذف المشرف' });
 });
 
 // ===================== فئات لعبة "لمّة" =====================
-router.get('/categories', (req, res) => {
-  const categories = db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
-  const words = db.prepare('SELECT * FROM category_words ORDER BY id').all();
+router.get('/categories', async (req, res) => {
+  const categories = await db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
+  const words = await db.prepare('SELECT * FROM category_words ORDER BY id').all();
   const byCategory = {};
   for (const w of words) {
     (byCategory[w.category_id] ||= []).push({ id: w.id, word: w.word });
@@ -127,14 +127,14 @@ router.get('/categories', (req, res) => {
 
 router.post('/categories',
   body('name').trim().isLength({ min: 1, max: 60 }),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
     const { name } = req.body;
-    const existing = db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
+    const existing = await db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
     if (existing) return res.status(409).json({ error: 'القسم موجود من قبل' });
 
-    const maxOrder = db.prepare('SELECT MAX(sort_order) AS m FROM categories').get().m || 0;
-    const { lastInsertRowid } = db.prepare('INSERT INTO categories (name, sort_order) VALUES (?, ?)')
+    const maxOrder = (await db.prepare('SELECT MAX(sort_order) AS m FROM categories').get()).m || 0;
+    const { lastInsertRowid } = await db.prepare('INSERT INTO categories (name, sort_order) VALUES (?, ?)')
       .run(name, maxOrder + 1);
     res.status(201).json({ id: lastInsertRowid, name });
   }
@@ -142,28 +142,28 @@ router.post('/categories',
 
 router.put('/categories/:id',
   body('name').trim().isLength({ min: 1, max: 60 }),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
-    const result = db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(req.body.name, req.params.id);
+    const result = await db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(req.body.name, req.params.id);
     if (result.changes === 0) return res.status(404).json({ error: 'القسم غير موجود' });
     res.json({ message: 'تم التحديث' });
   }
 );
 
-router.delete('/categories/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM categories WHERE id = ?').run(req.params.id);
+router.delete('/categories/:id', async (req, res) => {
+  const result = await db.prepare('DELETE FROM categories WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'القسم غير موجود' });
   res.json({ message: 'تم الحذف' });
 });
 
 router.post('/categories/:id/words',
   body('word').trim().isLength({ min: 1, max: 80 }),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
-    const category = db.prepare('SELECT id FROM categories WHERE id = ?').get(req.params.id);
+    const category = await db.prepare('SELECT id FROM categories WHERE id = ?').get(req.params.id);
     if (!category) return res.status(404).json({ error: 'القسم غير موجود' });
 
-    const { lastInsertRowid } = db.prepare('INSERT INTO category_words (category_id, word) VALUES (?, ?)')
+    const { lastInsertRowid } = await db.prepare('INSERT INTO category_words (category_id, word) VALUES (?, ?)')
       .run(req.params.id, req.body.word);
     res.status(201).json({ id: lastInsertRowid, word: req.body.word });
   }
@@ -171,23 +171,23 @@ router.post('/categories/:id/words',
 
 router.put('/words/:id',
   body('word').trim().isLength({ min: 1, max: 80 }),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
-    const result = db.prepare('UPDATE category_words SET word = ? WHERE id = ?').run(req.body.word, req.params.id);
+    const result = await db.prepare('UPDATE category_words SET word = ? WHERE id = ?').run(req.body.word, req.params.id);
     if (result.changes === 0) return res.status(404).json({ error: 'الكلمة غير موجودة' });
     res.json({ message: 'تم التحديث' });
   }
 );
 
-router.delete('/words/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM category_words WHERE id = ?').run(req.params.id);
+router.delete('/words/:id', async (req, res) => {
+  const result = await db.prepare('DELETE FROM category_words WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'الكلمة غير موجودة' });
   res.json({ message: 'تم الحذف' });
 });
 
 // ===================== أسئلة "العامل المشترك" =====================
-router.get('/common-factor', (req, res) => {
-  const rows = db.prepare('SELECT * FROM common_factor_questions ORDER BY id').all();
+router.get('/common-factor', async (req, res) => {
+  const rows = await db.prepare('SELECT * FROM common_factor_questions ORDER BY id').all();
   res.json(rows.map(r => ({
     id: r.id,
     level: r.level,
@@ -202,13 +202,13 @@ router.post('/common-factor',
   body('items').isArray({ min: 2 }),
   body('choices').isArray({ min: 2 }),
   body('answer').trim().notEmpty(),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
     const { level, items, choices, answer } = req.body;
     if (!choices.includes(answer)) {
       return res.status(400).json({ error: 'الإجابة الصحيحة لازم تكون ضمن الخيارات' });
     }
-    const { lastInsertRowid } = db.prepare(
+    const { lastInsertRowid } = await db.prepare(
       'INSERT INTO common_factor_questions (level, items, choices, answer) VALUES (?, ?, ?, ?)'
     ).run(level, JSON.stringify(items), JSON.stringify(choices), answer);
     res.status(201).json({ id: lastInsertRowid });
@@ -220,13 +220,13 @@ router.put('/common-factor/:id',
   body('items').isArray({ min: 2 }),
   body('choices').isArray({ min: 2 }),
   body('answer').trim().notEmpty(),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
     const { level, items, choices, answer } = req.body;
     if (!choices.includes(answer)) {
       return res.status(400).json({ error: 'الإجابة الصحيحة لازم تكون ضمن الخيارات' });
     }
-    const result = db.prepare(
+    const result = await db.prepare(
       'UPDATE common_factor_questions SET level = ?, items = ?, choices = ?, answer = ? WHERE id = ?'
     ).run(level, JSON.stringify(items), JSON.stringify(choices), answer, req.params.id);
     if (result.changes === 0) return res.status(404).json({ error: 'السؤال غير موجود' });
@@ -234,15 +234,15 @@ router.put('/common-factor/:id',
   }
 );
 
-router.delete('/common-factor/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM common_factor_questions WHERE id = ?').run(req.params.id);
+router.delete('/common-factor/:id', async (req, res) => {
+  const result = await db.prepare('DELETE FROM common_factor_questions WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'السؤال غير موجود' });
   res.json({ message: 'تم الحذف' });
 });
 
 // ===================== خانات لعبة الحروف =====================
-router.get('/letters-columns', (req, res) => {
-  const rows = db.prepare('SELECT * FROM letters_columns ORDER BY sort_order, id').all();
+router.get('/letters-columns', async (req, res) => {
+  const rows = await db.prepare('SELECT * FROM letters_columns ORDER BY sort_order, id').all();
   res.json(rows);
 });
 
@@ -251,14 +251,14 @@ router.post('/letters-columns',
   body('label').trim().isLength({ min: 1, max: 30 }),
   body('emoji').optional({ checkFalsy: true }).trim().isLength({ max: 10 }),
   body('is_default').optional().isBoolean(),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
     const { col_key, label, emoji, is_default } = req.body;
-    const existing = db.prepare('SELECT id FROM letters_columns WHERE col_key = ?').get(col_key);
+    const existing = await db.prepare('SELECT id FROM letters_columns WHERE col_key = ?').get(col_key);
     if (existing) return res.status(409).json({ error: 'المعرف مستخدم من قبل' });
 
-    const maxOrder = db.prepare('SELECT MAX(sort_order) AS m FROM letters_columns').get().m || 0;
-    const { lastInsertRowid } = db.prepare(
+    const maxOrder = (await db.prepare('SELECT MAX(sort_order) AS m FROM letters_columns').get()).m || 0;
+    const { lastInsertRowid } = await db.prepare(
       'INSERT INTO letters_columns (col_key, label, emoji, is_default, sort_order) VALUES (?, ?, ?, ?, ?)'
     ).run(col_key, label, emoji || '', is_default ? 1 : 0, maxOrder + 1);
     res.status(201).json({ id: lastInsertRowid });
@@ -269,10 +269,10 @@ router.put('/letters-columns/:id',
   body('label').trim().isLength({ min: 1, max: 30 }),
   body('emoji').optional({ checkFalsy: true }).trim().isLength({ max: 10 }),
   body('is_default').optional().isBoolean(),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
     const { label, emoji, is_default } = req.body;
-    const result = db.prepare(
+    const result = await db.prepare(
       'UPDATE letters_columns SET label = ?, emoji = ?, is_default = ? WHERE id = ?'
     ).run(label, emoji || '', is_default ? 1 : 0, req.params.id);
     if (result.changes === 0) return res.status(404).json({ error: 'الخانة غير موجودة' });
@@ -280,15 +280,15 @@ router.put('/letters-columns/:id',
   }
 );
 
-router.delete('/letters-columns/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM letters_columns WHERE id = ?').run(req.params.id);
+router.delete('/letters-columns/:id', async (req, res) => {
+  const result = await db.prepare('DELETE FROM letters_columns WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'الخانة غير موجودة' });
   res.json({ message: 'تم الحذف' });
 });
 
 // ===================== قضايا "قصة جنائية" =====================
-router.get('/detective-cases', (req, res) => {
-  const rows = db.prepare('SELECT * FROM detective_cases ORDER BY id').all();
+router.get('/detective-cases', async (req, res) => {
+  const rows = await db.prepare('SELECT * FROM detective_cases ORDER BY id').all();
   res.json(rows.map(r => ({
     id: r.id,
     level: r.level,
@@ -303,13 +303,13 @@ router.post('/detective-cases',
   body('story').trim().notEmpty(),
   body('choices').isArray({ min: 2 }),
   body('answer').trim().notEmpty(),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
     const { level, story, choices, answer } = req.body;
     if (!choices.includes(answer)) {
       return res.status(400).json({ error: 'الإجابة الصحيحة لازم تكون ضمن الخيارات' });
     }
-    const { lastInsertRowid } = db.prepare(
+    const { lastInsertRowid } = await db.prepare(
       'INSERT INTO detective_cases (level, story, choices, answer) VALUES (?, ?, ?, ?)'
     ).run(level, story, JSON.stringify(choices), answer);
     res.status(201).json({ id: lastInsertRowid });
@@ -321,13 +321,13 @@ router.put('/detective-cases/:id',
   body('story').trim().notEmpty(),
   body('choices').isArray({ min: 2 }),
   body('answer').trim().notEmpty(),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
     const { level, story, choices, answer } = req.body;
     if (!choices.includes(answer)) {
       return res.status(400).json({ error: 'الإجابة الصحيحة لازم تكون ضمن الخيارات' });
     }
-    const result = db.prepare(
+    const result = await db.prepare(
       'UPDATE detective_cases SET level = ?, story = ?, choices = ?, answer = ? WHERE id = ?'
     ).run(level, story, JSON.stringify(choices), answer, req.params.id);
     if (result.changes === 0) return res.status(404).json({ error: 'القضية غير موجودة' });
@@ -335,15 +335,15 @@ router.put('/detective-cases/:id',
   }
 );
 
-router.delete('/detective-cases/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM detective_cases WHERE id = ?').run(req.params.id);
+router.delete('/detective-cases/:id', async (req, res) => {
+  const result = await db.prepare('DELETE FROM detective_cases WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'القضية غير موجودة' });
   res.json({ message: 'تم الحذف' });
 });
 
 // ===================== كوبونات الخصم =====================
-router.get('/coupons', (req, res) => {
-  const rows = db.prepare('SELECT * FROM coupons ORDER BY id DESC').all();
+router.get('/coupons', async (req, res) => {
+  const rows = await db.prepare('SELECT * FROM coupons ORDER BY id DESC').all();
   res.json(rows);
 });
 
@@ -353,7 +353,7 @@ router.post('/coupons',
   body('discount_value').isFloat({ min: 0.01 }),
   body('max_uses').optional({ nullable: true, checkFalsy: true }).isInt({ min: 1 }),
   body('expires_at').optional({ nullable: true, checkFalsy: true }).isInt(),
-  (req, res) => {
+  async (req, res) => {
     if (validationError(req, res)) return;
     const code = normalizeCode(req.body.code);
     const { discount_type, discount_value, max_uses, expires_at } = req.body;
@@ -362,10 +362,10 @@ router.post('/coupons',
       return res.status(400).json({ error: 'نسبة الخصم ما تتجاوز 100%' });
     }
 
-    const existing = db.prepare('SELECT id FROM coupons WHERE code = ?').get(code);
+    const existing = await db.prepare('SELECT id FROM coupons WHERE code = ?').get(code);
     if (existing) return res.status(409).json({ error: 'هذا الكود مستخدم من قبل' });
 
-    const { lastInsertRowid } = db.prepare(`
+    const { lastInsertRowid } = await db.prepare(`
       INSERT INTO coupons (code, discount_type, discount_value, max_uses, expires_at)
       VALUES (?, ?, ?, ?, ?)
     `).run(code, discount_type, discount_value, max_uses || null, expires_at || null);
@@ -374,15 +374,15 @@ router.post('/coupons',
   }
 );
 
-router.put('/coupons/:id/toggle', (req, res) => {
-  const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id);
+router.put('/coupons/:id/toggle', async (req, res) => {
+  const coupon = await db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id);
   if (!coupon) return res.status(404).json({ error: 'الكوبون غير موجود' });
-  db.prepare('UPDATE coupons SET active = ? WHERE id = ?').run(coupon.active ? 0 : 1, coupon.id);
+  await db.prepare('UPDATE coupons SET active = ? WHERE id = ?').run(coupon.active ? 0 : 1, coupon.id);
   res.json({ message: 'تم التحديث' });
 });
 
-router.delete('/coupons/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM coupons WHERE id = ?').run(req.params.id);
+router.delete('/coupons/:id', async (req, res) => {
+  const result = await db.prepare('DELETE FROM coupons WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'الكوبون غير موجود' });
   res.json({ message: 'تم الحذف' });
 });
