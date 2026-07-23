@@ -155,6 +155,7 @@ function enterApp() {
   hide('view-auth');
   updateCornerAuth();
   connectSocket();
+  if (typeof refreshShopAccess === 'function') refreshShopAccess();
 
   // لو المستخدم كان يبي يدخل لعبة الحروف أونلاين قبل ما يسجل دخوله، نوجهه لها مباشرة
   if (typeof lgPendingOnline !== 'undefined' && lgPendingOnline) {
@@ -344,7 +345,8 @@ const ALL_TOP_VIEWS = [
   'view-mafia-setup', 'view-mafia-reveal', 'view-mafia-night', 'view-mafia-day', 'view-mafia-voting', 'view-mafia-results',
   'view-lobby', 'view-playing', 'view-voting', 'view-results',
   'view-letters-local-setup', 'view-letters-local-pass', 'view-letters-local-turn', 'view-letters-local-results', 'view-letters-local-gameover',
-  'view-letters-lobby', 'view-letters-play', 'view-letters-results', 'view-letters-gameover'
+  'view-letters-lobby', 'view-letters-play', 'view-letters-results', 'view-letters-gameover',
+  'view-shop'
 ];
 
 function hideAllTopViews() {
@@ -369,6 +371,8 @@ function navigateTo(target) {
     if (typeof startLettersOnlineMode === 'function') startLettersOnlineMode();
   } else if (target === 'letters-local') {
     if (typeof startLettersLocalMode === 'function') startLettersLocalMode();
+  } else if (target === 'shop') {
+    if (typeof startShopMode === 'function') startShopMode();
   }
   closeMenu();
 }

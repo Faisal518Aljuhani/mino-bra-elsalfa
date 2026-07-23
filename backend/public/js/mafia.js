@@ -58,6 +58,24 @@ function mafiaRolePreviewText(n) {
 }
 
 async function startMafiaMode() {
+  // لعبة المافيا مدفوعة — تحتاج اشتراك لمّة بلس أو فتحها بالكوينز
+  if (typeof refreshShopAccess === 'function') await refreshShopAccess();
+  const access = window.shopAccess;
+  const unlocked = access && (access.hasMafia || access.subscriptionActive);
+
+  if (!unlocked) {
+    if (typeof startShopMode === 'function') {
+      startShopMode();
+      setTimeout(() => {
+        const msg = document.getElementById('shop-message');
+        if (msg) msg.innerHTML = '<div class="error-box">لعبة المافيا تحتاج فتح من المتجر أو اشتراك لمّة بلس 👑</div>';
+      }, 100);
+    } else {
+      alert('لعبة المافيا تحتاج فتح من المتجر أو اشتراك لمّة بلس');
+    }
+    return;
+  }
+
   show('view-mafia-setup');
   updateMafiaRolePreview();
 }
