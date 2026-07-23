@@ -6,7 +6,7 @@ const db = require('../db');
 // يقرأ القيم من متغيرات البيئة (.env) بدل ما تكون مكتوبة بالكود مباشرة،
 // عشان ما تنكشف كلمة المرور لو انرفع الكود لأي مكان (GitHub مثلاً).
 async function bootstrapAdmin() {
-  const count = db.prepare('SELECT COUNT(*) AS c FROM admins').get().c;
+  const count = (await db.prepare('SELECT COUNT(*) AS c FROM admins').get()).c;
   if (count > 0) return;
 
   const username = process.env.ADMIN_USERNAME;
@@ -18,7 +18,7 @@ async function bootstrapAdmin() {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  db.prepare('INSERT INTO admins (username, password_hash) VALUES (?, ?)').run(username, passwordHash);
+  await db.prepare('INSERT INTO admins (username, password_hash) VALUES (?, ?)').run(username, passwordHash);
   console.log(`✅ تم إنشاء أول حساب مشرف باسم المستخدم: ${username}`);
 }
 
