@@ -13,11 +13,11 @@ function normalizeCode(code) {
 }
 
 // يتحقق من صلاحية كوبون لمستخدم معيّن، ويرجع { coupon } لو صحيح أو { error } لو لأ
-function validateCoupon(code, userId) {
+async function validateCoupon(code, userId) {
   const normalized = normalizeCode(code);
   if (!normalized) return { error: 'أدخل كود الكوبون' };
 
-  const coupon = db.prepare('SELECT * FROM coupons WHERE code = ?').get(normalized);
+  const coupon = await db.prepare('SELECT * FROM coupons WHERE code = ?').get(normalized);
   if (!coupon) return { error: 'كوبون غير موجود' };
   if (!coupon.active) return { error: 'هذا الكوبون غير مفعّل حالياً' };
   if (coupon.expires_at && coupon.expires_at < nowSeconds()) {
@@ -27,7 +27,7 @@ function validateCoupon(code, userId) {
     return { error: 'وصل هذا الكوبون للحد الأقصى من الاستخدام' };
   }
   if (userId) {
-    const already = db.prepare('SELECT id FROM coupon_redemptions WHERE coupon_id = ? AND user_id = ?')
+    const already = await db.prepare('SELECT id FROM coupon_redemptions WHERE coupon_id = ? AND user_id = ?')
       .get(coupon.id, userId);
     if (already) return { error: 'سبق واستخدمت هذا الكوبون' };
   }
@@ -44,9 +44,9 @@ function computeDiscount(amountSAR, coupon) {
 }
 
 // يسجل استخدام الكوبون (يُستدعى فقط بعد نجاح الدفع الفعلي، مو وقت إنشاء الفاتورة)
-function redeemCoupon(couponId, userId) {
-  db.prepare('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?').run(couponId);
-  db.prepare('INSERT OR IGNORE INTO coupon_redemptions (coupon_id, user_id) VALUES (?, ?)').run(couponId, userId);
+async function redeemCoupon(couponId, userId) {
+  await db.prepare('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?').run(couponId);
+  await db.prepare('INSERT OR IGNORE INTO coupon_redemptions (coupon_id, user_id) VALUES (?, ?)').run(couponId, userId);
 }
 
 module.exports = { validateCoupon, computeDiscount, redeemCoupon, normalizeCode };
