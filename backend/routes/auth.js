@@ -44,7 +44,7 @@ router.post('/register',
     const { username, email, password } = req.body;
 
     try {
-      const existing = db.prepare('SELECT id FROM users WHERE email = ? OR username = ?').get(email, username);
+      const existing = await db.prepare('SELECT id FROM users WHERE email = ? OR username = ?').get(email, username);
       if (existing) {
         return res.status(409).json({ error: 'البريد أو اسم المستخدم مستخدم من قبل' });
       }
@@ -53,7 +53,7 @@ router.post('/register',
 
       // ملاحظة: تم تعطيل تفعيل البريد الإلكتروني — الحساب يُفعّل مباشرة عند التسجيل
       // (مناسب لمشروع خاص تشاركه مع أشخاص محددين، بدون الحاجة لإعداد SMTP)
-      const result = db.prepare(`
+      const result = await db.prepare(`
         INSERT INTO users (username, email, password_hash, is_verified)
         VALUES (?, ?, ?, 1)
       `).run(username, email, passwordHash);
@@ -67,9 +67,9 @@ router.post('/register',
 );
 
 // ===== تفعيل الحساب عبر رابط البريد =====
-router.get('/verify/:token', (req, res) => {
+router.get('/verify/:token', async (req, res) => {
   const { token } = req.params;
-  const user = db.prepare('SELECT * FROM users WHERE verify_token = ?').get(token);
+  const user = await db.prepare('SELECT * FROM users WHERE verify_token = ?').get(token);
 
   if (!user) {
     return res.status(400).send('رابط التفعيل غير صحيح.');
@@ -78,7 +78,7 @@ router.get('/verify/:token', (req, res) => {
     return res.status(400).send('انتهت صلاحية رابط التفعيل، سجل حساب جديد أو اطلب رابط جديد.');
   }
 
-  db.prepare('UPDATE users SET is_verified = 1, verify_token = NULL, verify_token_expires = NULL WHERE id = ?').run(user.id);
+  await db.prepare('UPDATE users SET is_verified = 1, verify_token = NULL, verify_token_expires = NULL WHERE id = ?').run(user.id);
   res.send('<div style="font-family:Tahoma;text-align:center;padding:50px;direction:rtl;">✅ تم تفعيل حسابك بنجاح! ارجع للتطبيق وسجل دخولك.</div>');
 });
 
@@ -94,7 +94,7 @@ router.post('/login',
     }
 
     const { username, password } = req.body;
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    const user = await db.prepare('SELECT * FROM users WHERE username = ?').get(username);
 
     // رسالة عامة موحّدة عشان ما نكشف هل اسم المستخدم موجود أو لا
     const genericError = { error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
@@ -111,11 +111,11 @@ router.post('/login',
     if (!match) {
       const attempts = user.failed_login_attempts + 1;
       if (attempts >= MAX_FAILED_ATTEMPTS) {
-        db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = ? WHERE id = ?')
+        await db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = ? WHERE id = ?')
           .run(Date.now() + LOCK_TIME_MS, user.id);
         return res.status(423).json({ error: 'محاولات فاشلة كثيرة، الحساب مقفل 15 دقيقة' });
       }
-      db.prepare('UPDATE users SET failed_login_attempts = ? WHERE id = ?').run(attempts, user.id);
+      await db.prepare('UPDATE users SET failed_login_attempts = ? WHERE id = ?').run(attempts, user.id);
       return res.status(401).json(genericError);
     }
 
@@ -123,7 +123,7 @@ router.post('/login',
       return res.status(403).json({ error: 'لازم تفعّل بريدك الإلكتروني أول' });
     }
 
-    db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(user.id);
+    await db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(user.id);
 
     const token = signToken(user);
     res.json({ token, username: user.username });
@@ -147,14 +147,14 @@ router.post('/reset-password',
   body('password').isLength({ min: 8 }),
   async (req, res) => {
     const { token, password } = req.body;
-    const user = db.prepare('SELECT * FROM users WHERE reset_token = ?').get(token);
+    const user = await db.prepare('SELECT * FROM users WHERE reset_token = ?').get(token);
 
     if (!user || !user.reset_token_expires || user.reset_token_expires < Date.now()) {
       return res.status(400).json({ error: 'رابط غير صحيح أو منتهي' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?')
+    await db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?')
       .run(passwordHash, user.id);
 
     res.json({ message: 'تم تغيير كلمة المرور بنجاح' });
