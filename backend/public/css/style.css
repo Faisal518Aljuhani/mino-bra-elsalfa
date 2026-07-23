@@ -409,6 +409,14 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 .footer-ig:hover { border-color: var(--amber); }
 .footer-ig:active { transform: scale(0.97); }
 .footer-ig span { color: var(--amber); font-family: 'JetBrains Mono', monospace; }
+.footer-terms {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+.footer-terms:hover { color: var(--amber); text-decoration: underline; }
 
 /* ===== لعبة حرف اسم حيوان نبات جماد بلاد ===== */
 .lg-timer {
