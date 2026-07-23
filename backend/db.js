@@ -27,6 +27,63 @@ CREATE TABLE IF NOT EXISTS users (
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
+// ===== جداول متجر "لمّة كوين" =====
+
+// محفظة الكوينز — رصيد كل مستخدم (سطر واحد لكل مستخدم)
+db.exec(`
+CREATE TABLE IF NOT EXISTS wallets (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  coins INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER DEFAULT (strftime('%s','now'))
+)`);
+
+// سجل حركات الكوينز (شحن، شراء، هدية اشتراك) — للتدقيق فقط
+db.exec(`
+CREATE TABLE IF NOT EXISTS coin_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount INTEGER NOT NULL,     -- موجب = إضافة، سالب = خصم
+  reason TEXT NOT NULL,        -- 'purchase' | 'spend' | 'subscription_gift'
+  reference TEXT,              -- مثلاً معرف الفتح أو معرف الفاتورة
+  created_at INTEGER DEFAULT (strftime('%s','now'))
+)`);
+
+// العناصر المفتوحة بشكل دائم لكل مستخدم (فئة، قضية، كل الفئات، كل القضايا، المافيا، إزالة الإعلانات)
+db.exec(`
+CREATE TABLE IF NOT EXISTS unlocks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item_type TEXT NOT NULL,     -- 'category' | 'case' | 'all_categories' | 'all_cases' | 'mafia' | 'remove_ads'
+  item_id INTEGER,             -- رقم الفئة/القضية (فاضي للأنواع العامة)
+  created_at INTEGER DEFAULT (strftime('%s','now')),
+  UNIQUE(user_id, item_type, item_id)
+)`);
+
+// اشتراك "لمّة بلس" الشهري
+db.exec(`
+CREATE TABLE IF NOT EXISTS subscriptions (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'inactive',  -- 'active' | 'inactive' | 'expired'
+  current_period_end INTEGER,               -- طابع زمني (ثواني) لنهاية الفترة المدفوعة
+  last_gift_period TEXT,                    -- آخر شهر استلم فيه هدية الكوينز (YYYY-MM) لمنع تكرارها
+  created_at INTEGER DEFAULT (strftime('%s','now')),
+  updated_at INTEGER DEFAULT (strftime('%s','now'))
+)`);
+
+// سجل المدفوعات عبر Moyasar — يمنع معالجة نفس الدفعة مرتين (idempotency)
+db.exec(`
+CREATE TABLE IF NOT EXISTS payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  moyasar_invoice_id TEXT UNIQUE NOT NULL,
+  kind TEXT NOT NULL,          -- 'coins' | 'subscription'
+  reference TEXT NOT NULL,     -- معرف باقة الكوينز أو 'lamma_plus'
+  amount_halalas INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'initiated', -- 'initiated' | 'paid' | 'failed'
+  created_at INTEGER DEFAULT (strftime('%s','now')),
+  updated_at INTEGER DEFAULT (strftime('%s','now'))
+)`);
+
 // ===== جداول لوحة تحكم المشرف =====
 
 // حسابات المشرفين (منفصلة تماماً عن حسابات اللاعبين العاديين)
@@ -49,6 +106,9 @@ CREATE TABLE IF NOT EXISTS categories (
   sort_order INTEGER DEFAULT 0,
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
+
+// هجرة بسيطة: إضافة عمود "مجاني؟" لجدول الفئات لو ما كان موجود (لقواعد بيانات قديمة)
+try { db.exec('ALTER TABLE categories ADD COLUMN is_free INTEGER DEFAULT 0'); } catch (e) { /* العمود موجود مسبقاً */ }
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS category_words (
