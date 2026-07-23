@@ -1,7 +1,7 @@
 {
-  "name": "mino-bra-elsalfa-backend",
+  "name": "lamma-backend",
   "version": "1.0.0",
-  "description": "لعبة مين برا السالفة - سيرفر خلفي آمن",
+  "description": "لعبة لمّة - سيرفر خلفي آمن",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

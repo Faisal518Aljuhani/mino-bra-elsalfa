@@ -113,7 +113,7 @@ router.delete('/admins/:id', (req, res) => {
   res.json({ message: 'تم حذف المشرف' });
 });
 
-// ===================== فئات لعبة "مين برا السالفة" =====================
+// ===================== فئات لعبة "لمّة" =====================
 router.get('/categories', (req, res) => {
   const categories = db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
   const words = db.prepare('SELECT * FROM category_words ORDER BY id').all();

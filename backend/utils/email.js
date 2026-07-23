@@ -13,9 +13,9 @@ const transporter = nodemailer.createTransport({
 async function sendVerificationEmail(toEmail, username, token) {
   const link = `${process.env.APP_BASE_URL}/api/auth/verify/${token}`;
   await transporter.sendMail({
-    from: `"مين برا السالفة - نسخة فيصل" <${process.env.SMTP_USER}>`,
+    from: `"لمّة - نسخة فيصل" <${process.env.SMTP_USER}>`,
     to: toEmail,
-    subject: 'تفعيل حسابك في لعبة مين برا السالفة',
+    subject: 'تفعيل حسابك في لعبة لمّة',
     html: `
       <div style="font-family: Tahoma, Arial; direction: rtl; text-align: right;">
         <h2>أهلاً ${username} 👋</h2>
@@ -30,7 +30,7 @@ async function sendVerificationEmail(toEmail, username, token) {
 async function sendResetEmail(toEmail, username, token) {
   const link = `${process.env.APP_BASE_URL}/reset-password.html?token=${token}`;
   await transporter.sendMail({
-    from: `"مين برا السالفة" <${process.env.SMTP_USER}>`,
+    from: `"لمّة" <${process.env.SMTP_USER}>`,
     to: toEmail,
     subject: 'إعادة تعيين كلمة المرور',
     html: `

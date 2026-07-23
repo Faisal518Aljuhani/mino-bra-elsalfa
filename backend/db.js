@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS admins (
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// فئات لعبة "مين برا السالفة" (أقسام + كلمات كل قسم)
+// فئات لعبة "لمّة" (أقسام + كلمات كل قسم)
 db.exec(`
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
