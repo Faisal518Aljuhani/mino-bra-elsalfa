@@ -1,17 +1,55 @@
-const { DatabaseSync } = require('node:sqlite');
-const path = require('path');
-const fs = require('fs');
+// ===================== الاتصال بقاعدة البيانات (Turso / libSQL) =====================
+// قاعدة البيانات صارت مستضافة خارجياً (مجانية عبر Turso) بدل ملف SQLite محلي،
+// عشان البيانات ما تنفقد كل مرة يعيد الاستضافة (Render) تشغيل السيرفر.
+// لازم تضبط TURSO_DATABASE_URL و TURSO_AUTH_TOKEN بمتغيرات البيئة (.env أو إعدادات Render).
 
-const dbDir = path.join(__dirname, 'db');
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+const { createClient } = require('@libsql/client');
 
-const db = new DatabaseSync(path.join(dbDir, 'app.db'));
+const url = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-db.exec('PRAGMA journal_mode = WAL');
-db.exec('PRAGMA foreign_keys = ON');
+if (!url) {
+  throw new Error('TURSO_DATABASE_URL غير موجود بمتغيرات البيئة — أضفه بإعدادات Render (Environment) أو ملف .env');
+}
 
-// جدول المستخدمين
-db.exec(`
+const client = createClient({ url, authToken });
+
+// يحوّل صف النتيجة لكائن JS عادي (بدل كائن Row الخاص بمكتبة libsql)
+function normalizeRow(row) {
+  return row ? { ...row } : undefined;
+}
+
+// طبقة توافق تحاكي شكل db.prepare(sql).get/run/all(...) القديم، لكن كل دالة صارت غير متزامنة (Promise)
+// هذا يقلل حجم التغييرات بباقي الملفات لأقصى حد ممكن
+function prepare(sql) {
+  return {
+    async get(...args) {
+      const rs = await client.execute({ sql, args });
+      return normalizeRow(rs.rows[0]);
+    },
+    async all(...args) {
+      const rs = await client.execute({ sql, args });
+      return rs.rows.map(normalizeRow);
+    },
+    async run(...args) {
+      const rs = await client.execute({ sql, args });
+      return {
+        lastInsertRowid: Number(rs.lastInsertRowid),
+        changes: rs.rowsAffected
+      };
+    }
+  };
+}
+
+// ينفذ أمر SQL وحيد بدون معاملات (يستخدم لإنشاء/تعديل الجداول)
+async function exec(sql) {
+  await client.execute(sql);
+}
+
+// ===== تهيئة كل جداول قاعدة البيانات — تُستدعى مرة وحدة عند بدء تشغيل السيرفر =====
+async function initSchema() {
+  // جدول المستخدمين
+  await exec(`
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
@@ -27,79 +65,82 @@ CREATE TABLE IF NOT EXISTS users (
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// ===== جداول متجر "لمّة كوين" =====
+  // ===== جداول متجر "لمّة كوين" =====
 
-// محفظة الكوينز — رصيد كل مستخدم (سطر واحد لكل مستخدم)
-db.exec(`
+  // محفظة الكوينز — رصيد كل مستخدم (سطر واحد لكل مستخدم)
+  await exec(`
 CREATE TABLE IF NOT EXISTS wallets (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   coins INTEGER NOT NULL DEFAULT 0,
   updated_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// سجل حركات الكوينز (شحن، شراء، هدية اشتراك) — للتدقيق فقط
-db.exec(`
+  // سجل حركات الكوينز (شحن، شراء، هدية اشتراك) — للتدقيق فقط
+  await exec(`
 CREATE TABLE IF NOT EXISTS coin_transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  amount INTEGER NOT NULL,     -- موجب = إضافة، سالب = خصم
-  reason TEXT NOT NULL,        -- 'purchase' | 'spend' | 'subscription_gift'
-  reference TEXT,              -- مثلاً معرف الفتح أو معرف الفاتورة
+  amount INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  reference TEXT,
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// العناصر المفتوحة بشكل دائم لكل مستخدم (فئة، قضية، كل الفئات، كل القضايا، المافيا، إزالة الإعلانات)
-db.exec(`
+  // العناصر المفتوحة بشكل دائم لكل مستخدم
+  await exec(`
 CREATE TABLE IF NOT EXISTS unlocks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  item_type TEXT NOT NULL,     -- 'category' | 'case' | 'all_categories' | 'all_cases' | 'mafia' | 'remove_ads'
-  item_id INTEGER,             -- رقم الفئة/القضية (فاضي للأنواع العامة)
+  item_type TEXT NOT NULL,
+  item_id INTEGER,
   created_at INTEGER DEFAULT (strftime('%s','now')),
   UNIQUE(user_id, item_type, item_id)
 )`);
 
-// اشتراك "لمّة بلس" الشهري
-db.exec(`
+  // اشتراك "لمّة بلس" الشهري
+  await exec(`
 CREATE TABLE IF NOT EXISTS subscriptions (
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  status TEXT NOT NULL DEFAULT 'inactive',  -- 'active' | 'inactive' | 'expired'
-  current_period_end INTEGER,               -- طابع زمني (ثواني) لنهاية الفترة المدفوعة
-  last_gift_period TEXT,                    -- آخر شهر استلم فيه هدية الكوينز (YYYY-MM) لمنع تكرارها
+  status TEXT NOT NULL DEFAULT 'inactive',
+  current_period_end INTEGER,
+  last_gift_period TEXT,
   created_at INTEGER DEFAULT (strftime('%s','now')),
   updated_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// سجل المدفوعات عبر Moyasar — يمنع معالجة نفس الدفعة مرتين (idempotency)
-db.exec(`
+  // سجل المدفوعات عبر Moyasar — يمنع معالجة نفس الدفعة مرتين (idempotency)
+  await exec(`
 CREATE TABLE IF NOT EXISTS payments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   moyasar_invoice_id TEXT UNIQUE NOT NULL,
-  kind TEXT NOT NULL,          -- 'coins' | 'subscription'
-  reference TEXT NOT NULL,     -- معرف باقة الكوينز أو 'lamma_plus'
+  kind TEXT NOT NULL,
+  reference TEXT NOT NULL,
   amount_halalas INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'initiated', -- 'initiated' | 'paid' | 'failed'
+  status TEXT NOT NULL DEFAULT 'initiated',
+  cart_items TEXT,
+  coupon_code TEXT,
+  discount_halalas INTEGER DEFAULT 0,
   created_at INTEGER DEFAULT (strftime('%s','now')),
   updated_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// كوبونات الخصم (تُستخدم عند شراء باقات كوينز أو الاشتراك)
-db.exec(`
+  // كوبونات الخصم
+  await exec(`
 CREATE TABLE IF NOT EXISTS coupons (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT UNIQUE NOT NULL,
-  discount_type TEXT NOT NULL DEFAULT 'percent', -- 'percent' | 'fixed'
+  discount_type TEXT NOT NULL DEFAULT 'percent',
   discount_value REAL NOT NULL,
-  max_uses INTEGER,                 -- فاضي = بدون حد أقصى لعدد مرات الاستخدام
+  max_uses INTEGER,
   used_count INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1,
-  expires_at INTEGER,               -- طابع زمني بالثواني، فاضي = بدون تاريخ انتهاء
+  expires_at INTEGER,
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// سجل استخدام كل كوبون لكل مستخدم — يمنع نفس المستخدم يستخدم نفس الكوبون مرتين
-db.exec(`
+  // سجل استخدام كل كوبون لكل مستخدم
+  await exec(`
 CREATE TABLE IF NOT EXISTS coupon_redemptions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   coupon_id INTEGER NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
@@ -108,15 +149,9 @@ CREATE TABLE IF NOT EXISTS coupon_redemptions (
   UNIQUE(coupon_id, user_id)
 )`);
 
-// هجرة: أعمدة السلة والكوبون بجدول المدفوعات (لقواعد بيانات كانت موجودة قبل ميزة السلة)
-try { db.exec('ALTER TABLE payments ADD COLUMN cart_items TEXT'); } catch (e) { /* موجود مسبقاً */ }
-try { db.exec('ALTER TABLE payments ADD COLUMN coupon_code TEXT'); } catch (e) { /* موجود مسبقاً */ }
-try { db.exec('ALTER TABLE payments ADD COLUMN discount_halalas INTEGER DEFAULT 0'); } catch (e) { /* موجود مسبقاً */ }
+  // ===== جداول لوحة تحكم المشرف =====
 
-// ===== جداول لوحة تحكم المشرف =====
-
-// حسابات المشرفين (منفصلة تماماً عن حسابات اللاعبين العاديين)
-db.exec(`
+  await exec(`
 CREATE TABLE IF NOT EXISTS admins (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
@@ -127,19 +162,16 @@ CREATE TABLE IF NOT EXISTS admins (
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// فئات لعبة "لمّة" (أقسام + كلمات كل قسم)
-db.exec(`
+  await exec(`
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT UNIQUE NOT NULL,
   sort_order INTEGER DEFAULT 0,
+  is_free INTEGER DEFAULT 0,
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// هجرة بسيطة: إضافة عمود "مجاني؟" لجدول الفئات لو ما كان موجود (لقواعد بيانات قديمة)
-try { db.exec('ALTER TABLE categories ADD COLUMN is_free INTEGER DEFAULT 0'); } catch (e) { /* العمود موجود مسبقاً */ }
-
-db.exec(`
+  await exec(`
 CREATE TABLE IF NOT EXISTS category_words (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
@@ -147,19 +179,17 @@ CREATE TABLE IF NOT EXISTS category_words (
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// أسئلة لعبة "العامل المشترك"
-db.exec(`
+  await exec(`
 CREATE TABLE IF NOT EXISTS common_factor_questions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   level INTEGER NOT NULL DEFAULT 1,
-  items TEXT NOT NULL,     -- JSON array
-  choices TEXT NOT NULL,   -- JSON array
+  items TEXT NOT NULL,
+  choices TEXT NOT NULL,
   answer TEXT NOT NULL,
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// خانات لعبة "حرف، اسم، حيوان، نبات، جماد، بلاد"
-db.exec(`
+  await exec(`
 CREATE TABLE IF NOT EXISTS letters_columns (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   col_key TEXT UNIQUE NOT NULL,
@@ -170,15 +200,15 @@ CREATE TABLE IF NOT EXISTS letters_columns (
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
 
-// قضايا لعبة "قصة جنائية" — حل قضايا غامضة بالتفكير والتحليل
-db.exec(`
+  await exec(`
 CREATE TABLE IF NOT EXISTS detective_cases (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  level INTEGER NOT NULL DEFAULT 1,  -- 1 سهل، 2 متوسط، 3 صعب
+  level INTEGER NOT NULL DEFAULT 1,
   story TEXT NOT NULL,
-  choices TEXT NOT NULL,   -- JSON array (4 خيارات)
+  choices TEXT NOT NULL,
   answer TEXT NOT NULL,
   created_at INTEGER DEFAULT (strftime('%s','now'))
 )`);
+}
 
-module.exports = db;
+module.exports = { prepare, exec, initSchema };
