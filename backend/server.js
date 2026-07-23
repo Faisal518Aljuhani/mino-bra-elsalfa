@@ -9,12 +9,17 @@ const { Server } = require('socket.io');
 // استضافات مثل Render تعطي رابط HTTPS خاص بها وتمرر PORT تلقائياً عبر متغير بيئة
 const allowedOrigin = process.env.APP_BASE_URL || '*';
 
+const db = require('./db');
+const { seedIfEmpty } = require('./data/seed');
+const { bootstrapAdmin } = require('./utils/adminAuth');
 const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
 const setupGameSockets = require('./socket/game');
 const setupLettersGameSockets = require('./socket/lettersGame');
-const categories = require('./data/categories');
-const commonFactorQuestions = require('./data/common-factor');
-const lettersCategories = require('./data/letters-categories');
+
+// تعبئة أولية لقواعد بيانات المحتوى (لو فاضية) + إنشاء أول حساب مشرف
+seedIfEmpty();
+bootstrapAdmin();
 
 const app = express();
 const server = http.createServer(app);
@@ -28,6 +33,7 @@ app.use(express.json({ limit: '10kb' })); // يمنع أجسام طلبات ضخ
 
 // ===== المسارات =====
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ===== تقديم الفرونت إند =====
 app.use(express.static(path.join(__dirname, 'public')));
@@ -35,13 +41,36 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 // وضع "جهاز واحد" (تمرير الجهاز) لا يحتاج تسجيل دخول، فقط قائمة الفئات والكلمات كاملة
-app.get('/api/categories', (req, res) => res.json(categories));
+// المحتوى الآن يُقرأ من قاعدة البيانات (يقدر المشرف يعدّله من لوحة التحكم) بنفس شكل البيانات القديم
+app.get('/api/categories', (req, res) => {
+  const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
+  const words = db.prepare('SELECT * FROM category_words ORDER BY id').all();
+  const byCategory = {};
+  for (const w of words) (byCategory[w.category_id] ||= []).push(w.word);
+  const result = {};
+  for (const c of cats) result[c.name] = byCategory[c.id] || [];
+  res.json(result);
+});
 
 // لعبة العامل المشترك — لا تحتاج تسجيل دخول أيضاً
-app.get('/api/common-factor', (req, res) => res.json(commonFactorQuestions));
+app.get('/api/common-factor', (req, res) => {
+  const rows = db.prepare('SELECT * FROM common_factor_questions ORDER BY id').all();
+  res.json(rows.map(r => ({
+    level: r.level,
+    items: JSON.parse(r.items),
+    choices: JSON.parse(r.choices),
+    answer: r.answer
+  })));
+});
 
 // لعبة حرف اسم حيوان نبات جماد بلاد (وضع جهاز واحد) — لا تحتاج تسجيل دخول
-app.get('/api/letters-categories', (req, res) => res.json(lettersCategories));
+app.get('/api/letters-categories', (req, res) => {
+  const rows = db.prepare('SELECT * FROM letters_columns ORDER BY sort_order, id').all();
+  const columns = rows.map(r => ({ id: r.col_key, label: r.label, emoji: r.emoji }));
+  const defaultColumnIds = rows.filter(r => r.is_default).map(r => r.col_key);
+  const { letters, roundSeconds } = require('./data/letters-categories');
+  res.json({ columns, defaultColumnIds, letters, roundSeconds });
+});
 
 // ===== Socket.io مع نفس إعدادات CORS =====
 const io = new Server(server, {
