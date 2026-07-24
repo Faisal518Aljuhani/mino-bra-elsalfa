@@ -410,6 +410,16 @@ document.querySelectorAll('#menu-list li').forEach(li => {
   li.addEventListener('click', () => navigateTo(li.dataset.nav));
 });
 
+// ===================== أزرار الهيدر العلوي الجديد =====================
+$('btn-header-brand').addEventListener('click', () => navigateTo('home'));
+
+$('btn-header-search').addEventListener('click', () => {
+  openMenu();
+  $('menu-search').focus();
+});
+
+$('btn-header-cart').addEventListener('click', () => navigateTo('shop'));
+
 // ===================== استرجاع الجلسة عند فتح الصفحة =====================
 (function init() {
   const token = getToken();
