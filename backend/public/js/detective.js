@@ -33,7 +33,10 @@ async function startDetectiveMode() {
 
   if (!dtAllCases) {
     try {
-      const res = await fetch('/api/detective-cases');
+      const token = getToken();
+      const res = await fetch('/api/detective-cases', {
+        headers: token ? { Authorization: 'Bearer ' + token } : {}
+      });
       dtAllCases = await res.json();
     } catch (e) {
       dtAllCases = [];
