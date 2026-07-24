@@ -12,17 +12,36 @@
 </head>
 <body>
 
-<button id="btn-menu-toggle" class="menu-toggle" aria-label="القائمة" aria-expanded="false">
-  <span></span><span></span><span></span>
-</button>
+<header id="top-header" class="top-header">
+  <div class="top-header-inner">
+    <button id="btn-menu-toggle" class="menu-toggle" aria-label="القائمة" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
 
-<div id="corner-auth" class="corner-auth">
-  <button type="button" id="btn-corner-login" class="corner-auth-btn">تسجيل الدخول 👤</button>
-  <div id="corner-user" class="corner-user hidden">
-    <span class="corner-username" id="corner-username"></span>
-    <button type="button" id="btn-corner-logout" class="corner-logout-btn">خروج</button>
+    <div class="top-header-brand" id="btn-header-brand">
+      <img src="img/logo.png" alt="لمّة" class="top-header-logo">
+      <span class="top-header-title">لمّة</span>
+    </div>
+
+    <div class="top-header-spacer"></div>
+
+    <div class="top-header-actions">
+      <button type="button" id="btn-header-search" class="header-icon-btn" aria-label="بحث عن لعبة">🔍</button>
+      <span class="header-lang-pill">🌐 العربية</span>
+
+      <button type="button" id="btn-corner-login" class="header-icon-btn" aria-label="تسجيل الدخول">👤</button>
+      <div id="corner-user" class="corner-user hidden">
+        <span class="corner-username" id="corner-username"></span>
+        <button type="button" id="btn-corner-logout" class="corner-logout-btn" aria-label="تسجيل الخروج">🚪</button>
+      </div>
+
+      <button type="button" id="btn-header-cart" class="header-icon-btn header-cart-btn" aria-label="متجر لمّة كوين">
+        🪙
+        <span id="header-coin-badge" class="header-coin-badge hidden">0</span>
+      </button>
+    </div>
   </div>
-</div>
+</header>
 
 <div id="menu-overlay" class="menu-overlay"></div>
 
@@ -564,18 +583,6 @@
 
         <h3 class="shop-section-title">👑 اشتراك لمّة بلس</h3>
         <div id="shop-subscription-card" class="shop-cards"></div>
-
-        <div id="shop-cart-section" class="hidden">
-          <h3 class="shop-section-title">🛒 السلة</h3>
-          <div id="shop-cart-list"></div>
-          <div class="shop-coupon-row">
-            <input type="text" id="shop-coupon-input" placeholder="كود الخصم (اختياري)">
-            <button class="btn-ghost" id="btn-shop-apply-coupon">تطبيق</button>
-          </div>
-          <div id="shop-coupon-message"></div>
-          <div id="shop-cart-totals" class="shop-cart-totals"></div>
-          <button class="btn-primary" id="btn-shop-checkout-cart">إتمام الشراء</button>
-        </div>
 
         <h3 class="shop-section-title">فتح فئات لعبة لمّة</h3>
         <div id="shop-categories-list" class="shop-unlock-list"></div>
