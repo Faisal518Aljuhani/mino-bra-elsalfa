@@ -100,6 +100,7 @@ async function renderShop() {
     renderWalletBar(wallet);
     renderPackages();
     renderSubscriptionCard(wallet);
+    renderOnlinePlayCard(wallet);
     renderUnlockList('shop-categories-list', catStatus, 'category', shopConfig.prices.category_single, c => c.name);
     renderUnlockList('shop-cases-list', caseStatus, 'case', shopConfig.prices.case_single, c => `قضية مستوى ${c.level} #${c.id}`);
     renderAllButtons(wallet);
@@ -152,6 +153,25 @@ function renderSubscriptionCard(wallet) {
   `;
   if (!already && !inCart) {
     card.querySelector('button').addEventListener('click', () => addToCart('subscription'));
+  }
+  wrap.appendChild(card);
+}
+
+function renderOnlinePlayCard(wallet) {
+  const wrap = $('shop-online-play-card');
+  wrap.innerHTML = '';
+  const op = shopConfig.onlinePlay;
+  const card = document.createElement('div');
+  card.className = 'shop-card shop-card-wide';
+  const already = wallet && wallet.hasOnlinePlay;
+  const inCart = cart.some(i => i.type === 'online_play');
+  card.innerHTML = `
+    <div class="shop-card-title">${op.label}</div>
+    <div class="shop-card-note">افتحها مرة وحدة، وتقدر بعدها تسوي غرف أونلاين مع كل فئات لمّة مفتوحة تلقائياً</div>
+    <button class="btn-primary shop-buy-btn" ${already || inCart ? 'disabled' : ''}>${already ? 'مفعّلة ✅' : inCart ? 'بالسلة ✅' : 'أضف للسلة — ' + op.priceSAR + ' ريال'}</button>
+  `;
+  if (!already && !inCart) {
+    card.querySelector('button').addEventListener('click', () => addToCart('online_play'));
   }
   wrap.appendChild(card);
 }
@@ -221,18 +241,23 @@ function addToCart(type, packageId) {
   if (type === 'subscription') {
     if (cart.some(i => i.type === 'subscription')) return; // موجود بالسلة مسبقاً
     cart.push({ type: 'subscription', priceSAR: shopConfig.subscription.priceSAR, label: shopConfig.subscription.label });
+  } else if (type === 'online_play') {
+    if (cart.some(i => i.type === 'online_play')) return; // موجود بالسلة مسبقاً
+    cart.push({ type: 'online_play', priceSAR: shopConfig.onlinePlay.priceSAR, label: shopConfig.onlinePlay.label });
   } else if (type === 'coins') {
     const pkg = shopConfig.coinPackages.find(p => p.id === packageId);
     if (!pkg) return;
     cart.push({ type: 'coins', packageId: pkg.id, priceSAR: pkg.priceSAR, label: `${pkg.coins} 🪙 — ${pkg.label}` });
   }
   renderSubscriptionCard(window.shopAccess);
+  renderOnlinePlayCard(window.shopAccess);
   renderCart();
 }
 
 function removeFromCart(index) {
   cart.splice(index, 1);
   renderSubscriptionCard(window.shopAccess);
+  renderOnlinePlayCard(window.shopAccess);
   renderCart();
 }
 
@@ -308,7 +333,11 @@ document.getElementById('btn-shop-checkout-cart').addEventListener('click', asyn
   if (cart.length === 0) return;
   $('shop-message').innerHTML = `<div class="center-note">يتم تجهيز صفحة الدفع...</div>`;
   try {
-    const items = cart.map(i => i.type === 'coins' ? { kind: 'coins', packageId: i.packageId } : { kind: 'subscription' });
+    const items = cart.map(i => {
+      if (i.type === 'coins') return { kind: 'coins', packageId: i.packageId };
+      if (i.type === 'online_play') return { kind: 'online_play' };
+      return { kind: 'subscription' };
+    });
     const body = { items };
     if (appliedCoupon) body.couponCode = appliedCoupon.code;
 

@@ -7,6 +7,7 @@ const rooms = {}; // roomCode -> { hostId, players: [{id,username,socketId}], st
 
 // يجيب فئات "لمّة" وكلماتها من قاعدة البيانات (تعكس تعديلات لوحة التحكم فوراً)
 // ويصفّيها حسب صلاحيات المستخدم (فئات مجانية + فئات فتحها بالمتجر أو باشتراك لمّة بلس)
+// استثناء: لو المستخدم فاتح ميزة "لعب أونلاين" المدفوعة، تفتح له كل الفئات تلقائياً بوضع الأونلاين فقط
 function getAccessibleCategories(userId) {
   const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
   const words = db.prepare('SELECT * FROM category_words ORDER BY id').all();
@@ -16,7 +17,7 @@ function getAccessibleCategories(userId) {
   const access = getUserAccess(userId);
   const result = {};
   for (const c of cats) {
-    if (!canSeeCategory(access, c)) continue;
+    if (!access.hasOnlinePlay && !canSeeCategory(access, c)) continue;
     result[c.name] = byCategory[c.id] || [];
   }
   return result;
@@ -50,8 +51,13 @@ function setupGameSockets(io) {
   });
 
   io.on('connection', (socket) => {
-    // ===== إنشاء غرفة =====
+    // ===== إنشاء غرفة (بس لمن فاتح ميزة "لعب أونلاين" من المتجر) =====
     socket.on('create_room', () => {
+      const access = getUserAccess(socket.user.id);
+      if (!access.hasOnlinePlay) {
+        return socket.emit('error_msg', 'ميزة اللعب أونلاين مدفوعة — افتحها من المتجر أول (9.99 ريال)');
+      }
+
       let code;
       do { code = genRoomCode(); } while (rooms[code]);
 

@@ -28,6 +28,15 @@ const SUBSCRIPTION = {
   label: 'لمّة بلس'
 };
 
+// ----- ميزة "لعب أونلاين" (كل واحد بجهازه) — شراء حقيقي (ريال) دائم، مو بالكوينز -----
+// بس اللي يسوي الغرفة (المضيف) لازم يكون فاتحها؛ الضيوف ينضمون مجاناً
+// اللي يفتحها تفتح له كل فئات لمّة تلقائياً وقت اللعب أونلاين فقط (منفصل عن فتح الفئات بوضع تمرير الجوال)
+const ONLINE_PLAY = {
+  id: 'online_play',
+  priceSAR: 9.99,
+  label: 'لعب أونلاين (كل واحد بجهازه)'
+};
+
 function findPackage(packageId) {
   return COIN_PACKAGES.find(p => p.id === packageId) || null;
 }
@@ -53,4 +62,4 @@ function calcDiscount(coupon, subtotalSAR) {
   return Math.min(Math.max(discount, 0), subtotalSAR);
 }
 
-module.exports = { COIN_PACKAGES, PRICES, SUBSCRIPTION, findPackage, COUPONS, findCoupon, calcDiscount };
+module.exports = { COIN_PACKAGES, PRICES, SUBSCRIPTION, ONLINE_PLAY, findPackage, COUPONS, findCoupon, calcDiscount };

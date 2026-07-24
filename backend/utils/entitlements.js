@@ -29,6 +29,7 @@ function getUserAccess(userId) {
       hasAllCases: false,
       hasMafia: false,
       hasRemoveAds: false,
+      hasOnlinePlay: false,
       categoryIds: new Set(),
       caseIds: new Set()
     };
@@ -45,6 +46,7 @@ function getUserAccess(userId) {
     hasAllCases: subscriptionActive,
     hasMafia: subscriptionActive,
     hasRemoveAds: subscriptionActive,
+    hasOnlinePlay: false,
     categoryIds: new Set(),
     caseIds: new Set()
   };
@@ -54,6 +56,7 @@ function getUserAccess(userId) {
     else if (r.item_type === 'all_cases') access.hasAllCases = true;
     else if (r.item_type === 'mafia') access.hasMafia = true;
     else if (r.item_type === 'remove_ads') access.hasRemoveAds = true;
+    else if (r.item_type === 'online_play') access.hasOnlinePlay = true;
     else if (r.item_type === 'category') access.categoryIds.add(r.item_id);
     else if (r.item_type === 'case') access.caseIds.add(r.item_id);
   }

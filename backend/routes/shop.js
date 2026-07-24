@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const { requireAuth } = require('../utils/authMiddleware');
 const { ensureWallet, getSubscription, getUserAccess, nowSeconds } = require('../utils/entitlements');
-const { COIN_PACKAGES, PRICES, SUBSCRIPTION, findPackage, findCoupon, calcDiscount } = require('../data/shop-config');
+const { COIN_PACKAGES, PRICES, SUBSCRIPTION, ONLINE_PLAY, findPackage, findCoupon, calcDiscount } = require('../data/shop-config');
 const { createInvoice, getInvoice } = require('../utils/moyasar');
 
 const router = express.Router();
@@ -18,7 +18,7 @@ const checkoutLimiter = rateLimit({
 
 // ===== إعدادات المتجر (عامة، بدون تسجيل دخول) =====
 router.get('/config', (req, res) => {
-  res.json({ coinPackages: COIN_PACKAGES, prices: PRICES, subscription: SUBSCRIPTION });
+  res.json({ coinPackages: COIN_PACKAGES, prices: PRICES, subscription: SUBSCRIPTION, onlinePlay: ONLINE_PLAY });
 });
 
 // ===== محفظة المستخدم =====
@@ -35,6 +35,7 @@ router.get('/wallet', requireAuth, (req, res) => {
     hasAllCases: access.hasAllCases,
     hasMafia: access.hasMafia,
     hasRemoveAds: access.hasRemoveAds,
+    hasOnlinePlay: access.hasOnlinePlay,
     unlockedCategoryIds: [...access.categoryIds],
     unlockedCaseIds: [...access.caseIds]
   });
@@ -77,6 +78,10 @@ router.post('/checkout', requireAuth, checkoutLimiter, async (req, res) => {
         subtotalSAR += SUBSCRIPTION.priceSAR;
         normalizedItems.push({ kind: 'subscription' });
         descriptions.push('اشتراك لمّة بلس');
+      } else if (kind === 'online_play') {
+        subtotalSAR += ONLINE_PLAY.priceSAR;
+        normalizedItems.push({ kind: 'online_play' });
+        descriptions.push('لعب أونلاين');
       } else {
         return res.status(400).json({ error: 'عنصر غير صحيح بالسلة' });
       }
@@ -191,6 +196,11 @@ async function fulfillInvoiceIfPaid(invoiceId) {
         if (pkg) creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
       } else if (item.kind === 'subscription') {
         activateSubscription(row.user_id);
+      } else if (item.kind === 'online_play') {
+        const already = db.prepare("SELECT id FROM unlocks WHERE user_id = ? AND item_type = 'online_play' AND item_id IS NULL").get(row.user_id);
+        if (!already) {
+          db.prepare("INSERT INTO unlocks (user_id, item_type, item_id) VALUES (?, 'online_play', NULL)").run(row.user_id);
+        }
       }
     }
   } else if (row.kind === 'coins') {
