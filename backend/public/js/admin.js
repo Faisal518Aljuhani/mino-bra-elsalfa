@@ -47,7 +47,6 @@ function showDashboard(username) {
   loadQuestions();
   loadColumns();
   loadCases();
-  loadCoupons();
   loadAdmins();
 }
 
@@ -324,78 +323,6 @@ $('addCaseForm').addEventListener('submit', async (e) => {
     e.target.reset();
     flash('تمت إضافة القضية');
     loadCases();
-  } catch (err) { flash(err.message, 'error'); }
-});
-
-// ===================== كوبونات الخصم =====================
-async function loadCoupons() {
-  try {
-    const coupons = await api('/coupons');
-    const wrap = $('couponsList');
-    if (coupons.length === 0) {
-      wrap.innerHTML = '<p class="muted">ما فيه كوبونات بعد.</p>';
-      return;
-    }
-    wrap.innerHTML = coupons.map(c => {
-      const valueLabel = c.discount_type === 'percent' ? `${c.discount_value}%` : `${c.discount_value} ريال`;
-      const usesLabel = c.max_uses ? `${c.used_count} / ${c.max_uses}` : `${c.used_count} (بدون حد)`;
-      const expiryLabel = c.expires_at ? new Date(c.expires_at * 1000).toLocaleDateString('ar-SA') : 'بدون تاريخ انتهاء';
-      return `
-        <div class="list-item">
-          <div class="grow">
-            <strong>${escapeHtml(c.code)}</strong>
-            <span class="chip">${valueLabel}</span>
-            ${c.active ? '' : '<span class="chip" style="background:rgba(193,68,60,0.15); color:var(--red);">معطّل</span>'}
-            <div class="meta">استُخدم: ${usesLabel} — ينتهي: ${expiryLabel}</div>
-          </div>
-          <button class="btn-sm" data-togglecoupon="${c.id}">${c.active ? 'تعطيل' : 'تفعيل'}</button>
-          <button class="btn-sm btn-danger" data-delcoupon="${c.id}">حذف</button>
-        </div>
-      `;
-    }).join('');
-
-    wrap.querySelectorAll('[data-togglecoupon]').forEach(el => {
-      el.addEventListener('click', async () => {
-        try {
-          await api(`/coupons/${el.dataset.togglecoupon}/toggle`, { method: 'PUT' });
-          loadCoupons();
-        } catch (err) { flash(err.message, 'error'); }
-      });
-    });
-    wrap.querySelectorAll('[data-delcoupon]').forEach(el => {
-      el.addEventListener('click', async () => {
-        if (!confirm('حذف هذا الكوبون؟')) return;
-        try {
-          await api(`/coupons/${el.dataset.delcoupon}`, { method: 'DELETE' });
-          loadCoupons();
-        } catch (err) { flash(err.message, 'error'); }
-      });
-    });
-  } catch (err) { flash(err.message, 'error'); }
-}
-
-$('addCouponForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const code = $('couponCode').value.trim();
-  const discount_type = $('couponType').value;
-  const discount_value = Number($('couponValue').value);
-  const maxUsesRaw = $('couponMaxUses').value.trim();
-  const expiryRaw = $('couponExpiry').value;
-
-  try {
-    await api('/coupons', {
-      method: 'POST',
-      body: JSON.stringify({
-        code,
-        discount_type,
-        discount_value,
-        max_uses: maxUsesRaw ? Number(maxUsesRaw) : null,
-        expires_at: expiryRaw ? Math.floor(new Date(expiryRaw + 'T23:59:59').getTime() / 1000) : null
-      })
-    });
-    e.target.reset();
-    flash('تم إنشاء الكوبون');
-    loadCoupons();
   } catch (err) { flash(err.message, 'error'); }
 });
 

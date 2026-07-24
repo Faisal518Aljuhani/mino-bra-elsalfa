@@ -1,8 +1,17 @@
-const categoriesData = require('../data/letters-categories');
+const db = require('../db');
+const categoriesData = require('../data/letters-categories'); // letters + roundSeconds فقط (غير قابلة للتعديل من لوحة التحكم)
 
 // حالة الغرف تُحفظ بالذاكرة (كافية لتشغيل محلي/صغير بين أصدقاء)
 // roomCode -> { hostId, players, state, columns, letter, roundNumber, answers, doneSet, totalScores, timeoutHandle, graceHandle }
 const rooms = {};
+
+// يجيب خانات لعبة الحروف من قاعدة البيانات (تعكس تعديلات لوحة التحكم فوراً)
+function getColumnsFromDB() {
+  const rows = db.prepare('SELECT * FROM letters_columns ORDER BY sort_order, id').all();
+  const columns = rows.map(r => ({ id: r.col_key, label: r.label, emoji: r.emoji }));
+  const defaultColumnIds = rows.filter(r => r.is_default).map(r => r.col_key);
+  return { columns, defaultColumnIds };
+}
 
 function genRoomCode() {
   return 'ح' + Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -135,7 +144,7 @@ function setupLettersGameSockets(io) {
         hostId: socket.user.id,
         players: [{ id: socket.user.id, username: socket.user.username, socketId: socket.id }],
         state: 'lobby', // lobby -> playing -> reviewing
-        columns: categoriesData.defaultColumnIds.slice(),
+        columns: getColumnsFromDB().defaultColumnIds,
         letter: null,
         roundNumber: 0,
         answers: {},
@@ -170,7 +179,8 @@ function setupLettersGameSockets(io) {
       if (room.hostId !== socket.user.id) return socket.emit('lg_error', 'بس المضيف يقدر يغيّر الخانات');
       if (room.state !== 'lobby') return;
 
-      const valid = Array.isArray(columns) ? columns.filter(c => categoriesData.columns.some(cc => cc.id === c)) : [];
+      const dbColumns = getColumnsFromDB().columns;
+      const valid = Array.isArray(columns) ? columns.filter(c => dbColumns.some(cc => cc.id === c)) : [];
       if (valid.length < 3) return socket.emit('lg_error', 'اختر ٣ خانات على الأقل');
 
       room.columns = valid;
@@ -234,7 +244,7 @@ function setupLettersGameSockets(io) {
 
     // ===== قائمة الخانات المتاحة =====
     socket.on('lg_get_categories', () => {
-      socket.emit('lg_categories_list', categoriesData.columns);
+      socket.emit('lg_categories_list', getColumnsFromDB().columns);
     });
 
     // ===== مغادرة/قطع الاتصال =====

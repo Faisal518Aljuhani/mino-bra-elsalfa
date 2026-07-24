@@ -1,8 +1,26 @@
 const { verifySocketToken } = require('../utils/authMiddleware');
-const categories = require('../data/categories');
+const db = require('../db');
+const { getUserAccess, canSeeCategory } = require('../utils/entitlements');
 
 // حالة الغرف تُحفظ في الذاكرة (كافية لتشغيل محلي بين أصدقاء)
 const rooms = {}; // roomCode -> { hostId, players: [{id,username,socketId}], state, category, word, spyId, votes: {} }
+
+// يجيب فئات "لمّة" وكلماتها من قاعدة البيانات (تعكس تعديلات لوحة التحكم فوراً)
+// ويصفّيها حسب صلاحيات المستخدم (فئات مجانية + فئات فتحها بالمتجر أو باشتراك لمّة بلس)
+function getAccessibleCategories(userId) {
+  const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
+  const words = db.prepare('SELECT * FROM category_words ORDER BY id').all();
+  const byCategory = {};
+  for (const w of words) (byCategory[w.category_id] ||= []).push(w.word);
+
+  const access = getUserAccess(userId);
+  const result = {};
+  for (const c of cats) {
+    if (!canSeeCategory(access, c)) continue;
+    result[c.name] = byCategory[c.id] || [];
+  }
+  return result;
+}
 
 function genRoomCode() {
   return Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -71,9 +89,17 @@ function setupGameSockets(io) {
       if (room.hostId !== socket.user.id) return socket.emit('error_msg', 'بس المضيف يقدر يبدأ اللعبة');
       if (room.players.length < 3) return socket.emit('error_msg', 'لازم 3 لاعبين على الأقل');
 
-      const catNames = Object.keys(categories);
-      const categoryName = chosenCategory && categories[chosenCategory] ? chosenCategory : catNames[Math.floor(Math.random() * catNames.length)];
-      const words = categories[categoryName];
+      // الفئات المتاحة تُحسب حسب صلاحيات المضيف (اللي هو اللي يختار الفئة)
+      const accessibleCategories = getAccessibleCategories(room.hostId);
+      const catNames = Object.keys(accessibleCategories);
+      if (catNames.length === 0) return socket.emit('error_msg', 'ما فيه فئات متاحة لك حالياً، افتح فئات من المتجر');
+
+      if (chosenCategory && !accessibleCategories[chosenCategory]) {
+        return socket.emit('error_msg', 'هذي الفئة ما هي مفتوحة لك، افتحها من المتجر أول');
+      }
+
+      const categoryName = chosenCategory && accessibleCategories[chosenCategory] ? chosenCategory : catNames[Math.floor(Math.random() * catNames.length)];
+      const words = accessibleCategories[categoryName];
       const word = words[Math.floor(Math.random() * words.length)];
       const spy = room.players[Math.floor(Math.random() * room.players.length)];
 
@@ -149,7 +175,8 @@ function setupGameSockets(io) {
 
     // ===== قائمة الفئات المتاحة =====
     socket.on('get_categories', () => {
-      socket.emit('categories_list', Object.keys(categories));
+      const accessibleCategories = getAccessibleCategories(socket.user.id);
+      socket.emit('categories_list', Object.keys(accessibleCategories));
     });
 
     // ===== مغادرة/قطع الاتصال =====

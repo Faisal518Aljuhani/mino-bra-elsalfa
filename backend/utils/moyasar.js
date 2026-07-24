@@ -49,18 +49,23 @@ async function createInvoice({ amountSAR, description, callbackUrl, successUrl }
   return data; // { id, status, url, amount, ... }
 }
 
-// يجيب تفاصيل فاتورة معينة مباشرة من Moyasar (نستخدمها للتأكد الحقيقي إن الفاتورة انسددت
-// قبل ما نضيف الكوينز، بدل ما نعتمد فقط على بيانات الـ webhook القادمة من المتصفح/الشبكة)
+/**
+ * يجيب حالة فاتورة معينة مباشرة من Moyasar (طلب صادر من عندنا، مو استقبال webhook)
+ * نستخدمها كخطة بديلة لتأكيد الدفع لو الـ webhook ما وصل (مثلاً أثناء التشغيل المحلي
+ * اللي ما تقدر Moyasar توصل لسيرفرك فيه أصلاً)، لأن هذا الطلب صادر من سيرفرنا ليهم،
+ * فيشتغل حتى لو سيرفرنا مو متاح للعالم الخارجي.
+ * @param {string} invoiceId
+ */
 async function getInvoice(invoiceId) {
   const res = await fetch(`${MOYASAR_API_BASE}/invoices/${invoiceId}`, {
     headers: { Authorization: authHeader() }
   });
   const data = await res.json();
   if (!res.ok) {
-    const msg = (data && data.message) || 'تعذر جلب بيانات الفاتورة من Moyasar';
+    const msg = (data && data.message) || 'تعذر جلب حالة الفاتورة';
     throw new Error(msg);
   }
-  return data; // { id, status, amount, ... }
+  return data; // { id, status: 'initiated'|'paid'|..., payments: [...], ... }
 }
 
 module.exports = { createInvoice, getInvoice };

@@ -4,7 +4,7 @@ const db = require('../db');
 const { requireAuth } = require('../utils/authMiddleware');
 const { ensureWallet, getSubscription, getUserAccess, nowSeconds } = require('../utils/entitlements');
 const { COIN_PACKAGES, PRICES, SUBSCRIPTION, findPackage } = require('../data/shop-config');
-const { createInvoice } = require('../utils/moyasar');
+const { createInvoice, getInvoice } = require('../utils/moyasar');
 
 const router = express.Router();
 
@@ -40,7 +40,7 @@ router.get('/wallet', requireAuth, (req, res) => {
   });
 });
 
-// ===== بدء عملية دفع حقيقية عبر Moyasar (منتج واحد) =====
+// ===== بدء عملية دفع حقيقية عبر Moyasar =====
 // body: { kind: 'coins', packageId } أو { kind: 'subscription' }
 router.post('/checkout', requireAuth, checkoutLimiter, async (req, res) => {
   const { kind } = req.body || {};
@@ -75,65 +75,9 @@ router.post('/checkout', requireAuth, checkoutLimiter, async (req, res) => {
       VALUES (?, ?, ?, ?, ?, 'initiated')
     `).run(req.user.id, invoice.id, kind, reference, Math.round(amountSAR * 100));
 
-    res.json({ url: invoice.url });
+    res.json({ url: invoice.url, invoiceId: invoice.id });
   } catch (err) {
     console.error('خطأ إنشاء فاتورة Moyasar:', err.message);
-    res.status(500).json({ error: 'تعذر بدء عملية الدفع، حاول لاحقاً' });
-  }
-});
-
-// ===== بدء عملية دفع حقيقية عبر Moyasar (سلة فيها أكثر من عنصر) =====
-// body: { items: [{ kind: 'coins', packageId, qty }, { kind: 'subscription' }] }
-// كل عناصر السلة تُدفع بفاتورة Moyasar وحدة (مبلغ إجمالي)، وتُصرف كلها دفعة وحدة عند تأكيد الدفع بالـ webhook
-router.post('/checkout-cart', requireAuth, checkoutLimiter, async (req, res) => {
-  const items = Array.isArray(req.body && req.body.items) ? req.body.items : [];
-  if (items.length === 0) return res.status(400).json({ error: 'السلة فاضية' });
-  if (items.length > 20) return res.status(400).json({ error: 'عدد عناصر السلة كبير جداً' });
-
-  try {
-    let amountSAR = 0;
-    const normalized = [];
-    const descriptionParts = [];
-    let sawSubscription = false;
-
-    for (const raw of items) {
-      const qty = Math.min(Math.max(parseInt(raw.qty, 10) || 1, 1), 20);
-
-      if (raw.kind === 'coins') {
-        const pkg = findPackage(raw.packageId);
-        if (!pkg) return res.status(400).json({ error: 'باقة كوينز غير صحيحة بالسلة' });
-        amountSAR += pkg.priceSAR * qty;
-        normalized.push({ kind: 'coins', packageId: pkg.id, qty });
-        descriptionParts.push(`${pkg.coins} كوين × ${qty}`);
-      } else if (raw.kind === 'subscription') {
-        if (sawSubscription) continue; // الاشتراك مرة وحدة بالسلة حتى لو انضاف مرتين
-        sawSubscription = true;
-        amountSAR += SUBSCRIPTION.priceSAR;
-        normalized.push({ kind: 'subscription', qty: 1 });
-        descriptionParts.push('اشتراك لمّة بلس');
-      } else {
-        return res.status(400).json({ error: 'عنصر غير صحيح بالسلة' });
-      }
-    }
-
-    if (normalized.length === 0) return res.status(400).json({ error: 'السلة فاضية' });
-
-    const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
-    const invoice = await createInvoice({
-      amountSAR,
-      description: `طلب لمّة: ${descriptionParts.join(' + ')}`.slice(0, 250),
-      callbackUrl: `${baseUrl}/api/shop/webhook`,
-      successUrl: `${baseUrl}/?shop=success`
-    });
-
-    db.prepare(`
-      INSERT INTO payments (user_id, moyasar_invoice_id, kind, reference, amount_halalas, status)
-      VALUES (?, ?, 'cart', ?, ?, 'initiated')
-    `).run(req.user.id, invoice.id, JSON.stringify(normalized), Math.round(amountSAR * 100));
-
-    res.json({ url: invoice.url });
-  } catch (err) {
-    console.error('خطأ إنشاء فاتورة سلة Moyasar:', err.message);
     res.status(500).json({ error: 'تعذر بدء عملية الدفع، حاول لاحقاً' });
   }
 });
@@ -155,34 +99,57 @@ router.post('/webhook', (req, res) => {
     if (payload.type !== 'payment_paid') return;
     const payment = payload.data;
     if (!payment || !payment.invoice_id) return;
-
-    const row = db.prepare('SELECT * FROM payments WHERE moyasar_invoice_id = ?').get(payment.invoice_id);
-    if (!row) return console.warn('استلمنا webhook لفاتورة مو موجودة عندنا:', payment.invoice_id);
-    if (row.status === 'paid') return; // معالج مسبقاً (idempotency)
-
-    db.prepare(`UPDATE payments SET status = 'paid', updated_at = strftime('%s','now') WHERE id = ?`).run(row.id);
-
-    if (row.kind === 'coins') {
-      const pkg = findPackage(row.reference);
-      if (pkg) creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
-    } else if (row.kind === 'subscription') {
-      activateSubscription(row.user_id);
-    } else if (row.kind === 'cart') {
-      let items = [];
-      try { items = JSON.parse(row.reference); } catch (e) { items = []; }
-      for (const item of items) {
-        if (item.kind === 'coins') {
-          const pkg = findPackage(item.packageId);
-          if (pkg) creditCoins(row.user_id, pkg.coins * (item.qty || 1), 'purchase', `invoice:${row.moyasar_invoice_id}`);
-        } else if (item.kind === 'subscription') {
-          activateSubscription(row.user_id);
-        }
-      }
-    }
+    fulfillInvoiceIfPaid(payment.invoice_id);
   } catch (err) {
     console.error('خطأ معالجة webhook Moyasar:', err);
   }
 });
+
+// ===== تأكيد الدفع يدوياً لما المستخدم يرجع من صفحة الدفع =====
+// خطة بديلة لو الـ webhook ما وصل (شائع أثناء التشغيل المحلي، لأن Moyasar ما تقدر
+// توصل سيرفرك المحلي أصلاً — بعكس هذا الطلب اللي صادر من سيرفرنا لهم، فيشتغل دائماً)
+router.post('/verify', requireAuth, checkoutLimiter, async (req, res) => {
+  const { invoiceId } = req.body || {};
+  if (!invoiceId) return res.status(400).json({ error: 'رقم الفاتورة مطلوب' });
+
+  const row = db.prepare('SELECT * FROM payments WHERE moyasar_invoice_id = ?').get(invoiceId);
+  if (!row || row.user_id !== req.user.id) {
+    return res.status(404).json({ error: 'الفاتورة غير موجودة' });
+  }
+
+  if (row.status === 'paid') {
+    return res.json({ status: 'paid' });
+  }
+
+  try {
+    const credited = await fulfillInvoiceIfPaid(invoiceId);
+    res.json({ status: credited ? 'paid' : 'pending' });
+  } catch (err) {
+    console.error('خطأ التحقق اليدوي من فاتورة Moyasar:', err.message);
+    res.status(500).json({ error: 'تعذر التحقق من حالة الدفع، حاول بعد شوي' });
+  }
+});
+
+// يتحقق من حالة فاتورة معينة (من قاعدة بياناتنا أو مباشرة من Moyasar) ويمنح المحتوى لو انصرفت فعلاً
+// idempotent: آمن نستدعيه أكثر من مرة لنفس الفاتورة (من الـ webhook و/أو من route التحقق اليدوي)
+async function fulfillInvoiceIfPaid(invoiceId) {
+  const row = db.prepare('SELECT * FROM payments WHERE moyasar_invoice_id = ?').get(invoiceId);
+  if (!row) { console.warn('فاتورة مو موجودة عندنا:', invoiceId); return false; }
+  if (row.status === 'paid') return true; // معالج مسبقاً (idempotency)
+
+  const invoice = await getInvoice(invoiceId);
+  if (invoice.status !== 'paid') return false;
+
+  db.prepare(`UPDATE payments SET status = 'paid', updated_at = strftime('%s','now') WHERE id = ?`).run(row.id);
+
+  if (row.kind === 'coins') {
+    const pkg = findPackage(row.reference);
+    if (pkg) creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
+  } else if (row.kind === 'subscription') {
+    activateSubscription(row.user_id);
+  }
+  return true;
+}
 
 function creditCoins(userId, amount, reason, reference) {
   ensureWallet(userId);
@@ -205,8 +172,8 @@ function activateSubscription(userId) {
   } else {
     db.prepare(`
       INSERT INTO subscriptions (user_id, status, current_period_end, last_gift_period)
-      VALUES (?, 'active', ?, NULL)
-    `).run(userId, periodEnd);
+      VALUES (?, 'active', ?, ?)
+    `).run(userId, periodEnd, currentMonth);
   }
 
   // هدية الكوينز الشهرية — تُمنح مرة وحدة بالشهر فقط
