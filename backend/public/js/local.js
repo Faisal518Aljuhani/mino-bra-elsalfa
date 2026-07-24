@@ -11,7 +11,10 @@ async function startLocalMode() {
 
   if (!localCategories) {
     try {
-      const res = await fetch('/api/categories');
+      const token = getToken();
+      const res = await fetch('/api/categories', {
+        headers: token ? { Authorization: 'Bearer ' + token } : {}
+      });
       localCategories = await res.json();
       const sel = $('local-category-select');
       Object.keys(localCategories).forEach(c => {
