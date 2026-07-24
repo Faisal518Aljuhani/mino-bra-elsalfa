@@ -1,174 +1,126 @@
-const { verifySocketToken } = require('../utils/authMiddleware');
-const categories = require('../data/categories');
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const cors = require('cors');
+const helmet = require('helmet');
+const { Server } = require('socket.io');
 
-// حالة الغرف تُحفظ في الذاكرة (كافية لتشغيل محلي بين أصدقاء)
-const rooms = {}; // roomCode -> { hostId, players: [{id,username,socketId}], state, category, word, spyId, votes: {} }
+// استضافات مثل Render تعطي رابط HTTPS خاص بها وتمرر PORT تلقائياً عبر متغير بيئة
+const allowedOrigin = process.env.APP_BASE_URL || '*';
 
-function genRoomCode() {
-  return Math.random().toString(36).substring(2, 7).toUpperCase();
-}
+const db = require('./db');
+const { seedIfEmpty } = require('./data/seed');
+const { bootstrapAdmin } = require('./utils/adminAuth');
+const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
+const shopRoutes = require('./routes/shop');
+const { optionalAuth } = require('./utils/authMiddleware');
+const { getUserAccess, canSeeCategory, canSeeCase } = require('./utils/entitlements');
+const setupGameSockets = require('./socket/game');
+const setupLettersGameSockets = require('./socket/lettersGame');
 
-function publicRoomState(room) {
-  return {
-    code: room.code,
-    hostId: room.hostId,
-    state: room.state,
-    players: room.players.map(p => ({ id: p.id, username: p.username })),
-    category: room.state === 'lobby' ? null : room.categoryName, // اسم الفئة يظهر للكل (مو الكلمة)
-  };
-}
+// تعبئة أولية لقواعد بيانات المحتوى (لو فاضية) + إنشاء أول حساب مشرف
+seedIfEmpty();
+bootstrapAdmin();
 
-function setupGameSockets(io) {
-  io.use((socket, next) => {
-    try {
-      const token = socket.handshake.auth?.token;
-      if (!token) return next(new Error('غير مصرح'));
-      const payload = verifySocketToken(token);
-      socket.user = payload; // { id, username }
-      next();
-    } catch (e) {
-      next(new Error('جلسة غير صالحة'));
-    }
-  });
+const app = express();
+const server = http.createServer(app);
 
-  io.on('connection', (socket) => {
-    // ===== إنشاء غرفة =====
-    socket.on('create_room', () => {
-      let code;
-      do { code = genRoomCode(); } while (rooms[code]);
+// استضافات مثل Render تحط تطبيقك خلف بروكسي، وتمرر IP الزائر الحقيقي عبر X-Forwarded-For
+// بدون هذا السطر، express-rate-limit ما يقدر يحدد IP كل مستخدم بشكل صحيح
+app.set('trust proxy', 1);
 
-      rooms[code] = {
-        code,
-        hostId: socket.user.id,
-        players: [{ id: socket.user.id, username: socket.user.username, socketId: socket.id }],
-        state: 'lobby', // lobby -> playing -> voting -> results
-        categoryName: null,
-        word: null,
-        spyId: null,
-        votes: {}
-      };
+// ===== حماية أساسية =====
+app.use(helmet({
+  contentSecurityPolicy: false // مبسّط للتشغيل المحلي، فعّله بإعدادات مخصصة لو نشرت المشروع لاحقاً
+}));
+app.use(cors({ origin: allowedOrigin }));
+app.use(express.json({ limit: '10kb' })); // يمنع أجسام طلبات ضخمة (DoS بسيط)
 
-      socket.join(code);
-      socket.emit('room_created', publicRoomState(rooms[code]));
-    });
+// ===== المسارات =====
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/shop', shopRoutes);
 
-    // ===== الانضمام لغرفة =====
-    socket.on('join_room', ({ roomCode }) => {
-      const room = rooms[roomCode];
-      if (!room) return socket.emit('error_msg', 'الغرفة غير موجودة');
-      if (room.state !== 'lobby') return socket.emit('error_msg', 'اللعبة بدأت بالفعل');
-      if (room.players.some(p => p.id === socket.user.id)) return socket.emit('error_msg', 'أنت بالفعل داخل الغرفة');
+// ===== تقديم الفرونت إند =====
+app.use(express.static(path.join(__dirname, 'public')));
 
-      room.players.push({ id: socket.user.id, username: socket.user.username, socketId: socket.id });
-      socket.join(roomCode);
-      io.to(roomCode).emit('room_update', publicRoomState(room));
-    });
+app.get('/health', (req, res) => res.json({ ok: true }));
 
-    // ===== بدء اللعبة (للمضيف فقط) =====
-    socket.on('start_game', ({ roomCode, chosenCategory }) => {
-      const room = rooms[roomCode];
-      if (!room) return socket.emit('error_msg', 'الغرفة غير موجودة');
-      if (room.hostId !== socket.user.id) return socket.emit('error_msg', 'بس المضيف يقدر يبدأ اللعبة');
-      if (room.players.length < 3) return socket.emit('error_msg', 'لازم 3 لاعبين على الأقل');
+// وضع "جهاز واحد" (تمرير الجهاز) لا يحتاج تسجيل دخول، لكن الفئات المدفوعة تُصفّى حسب اشتراك/فتوحات المستخدم لو مسجل دخوله
+// المحتوى يُقرأ من قاعدة البيانات (يقدر المشرف يعدّله من لوحة التحكم) بنفس شكل البيانات القديم
+app.get('/api/categories', optionalAuth, (req, res) => {
+  const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
+  const words = db.prepare('SELECT * FROM category_words ORDER BY id').all();
+  const byCategory = {};
+  for (const w of words) (byCategory[w.category_id] ||= []).push(w.word);
 
-      const catNames = Object.keys(categories);
-      const categoryName = chosenCategory && categories[chosenCategory] ? chosenCategory : catNames[Math.floor(Math.random() * catNames.length)];
-      const words = categories[categoryName];
-      const word = words[Math.floor(Math.random() * words.length)];
-      const spy = room.players[Math.floor(Math.random() * room.players.length)];
+  const access = getUserAccess(req.user && req.user.id);
+  const result = {};
+  for (const c of cats) {
+    if (!canSeeCategory(access, c)) continue;
+    result[c.name] = byCategory[c.id] || [];
+  }
+  res.json(result);
+});
 
-      room.state = 'playing';
-      room.categoryName = categoryName;
-      room.word = word;
-      room.spyId = spy.id;
-      room.votes = {};
+// قائمة كل الفئات مع حالة القفل (مستخدمة بواجهة المتجر لعرض "فتح فئة واحدة")
+app.get('/api/categories-status', optionalAuth, (req, res) => {
+  const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
+  const access = getUserAccess(req.user && req.user.id);
+  res.json(cats.map(c => ({ id: c.id, name: c.name, unlocked: canSeeCategory(access, c) })));
+});
 
-      room.players.forEach(p => {
-        const isSpy = p.id === spy.id;
-        io.to(p.socketId).emit('game_started', {
-          category: categoryName,
-          word: isSpy ? null : word,
-          isSpy
-        });
-      });
+// لعبة العامل المشترك — لا تحتاج تسجيل دخول أيضاً
+app.get('/api/common-factor', (req, res) => {
+  const rows = db.prepare('SELECT * FROM common_factor_questions ORDER BY id').all();
+  res.json(rows.map(r => ({
+    level: r.level,
+    items: JSON.parse(r.items),
+    choices: JSON.parse(r.choices),
+    answer: r.answer
+  })));
+});
 
-      io.to(roomCode).emit('room_update', publicRoomState(room));
-    });
+// لعبة حرف اسم حيوان نبات جماد بلاد (وضع جهاز واحد) — لا تحتاج تسجيل دخول
+app.get('/api/letters-categories', (req, res) => {
+  const rows = db.prepare('SELECT * FROM letters_columns ORDER BY sort_order, id').all();
+  const columns = rows.map(r => ({ id: r.col_key, label: r.label, emoji: r.emoji }));
+  const defaultColumnIds = rows.filter(r => r.is_default).map(r => r.col_key);
+  const { letters, roundSeconds } = require('./data/letters-categories');
+  res.json({ columns, defaultColumnIds, letters, roundSeconds });
+});
 
-    // ===== الانتقال لمرحلة التصويت =====
-    socket.on('start_voting', ({ roomCode }) => {
-      const room = rooms[roomCode];
-      if (!room) return;
-      if (room.hostId !== socket.user.id) return socket.emit('error_msg', 'بس المضيف يقدر يبدأ التصويت');
-      room.state = 'voting';
-      room.votes = {};
-      io.to(roomCode).emit('room_update', publicRoomState(room));
-    });
+// لعبة "قصة جنائية" — كل القضايا مدفوعة (فردياً أو دفعة وحدة أو باشتراك لمّة بلس)
+app.get('/api/detective-cases', optionalAuth, (req, res) => {
+  const rows = db.prepare('SELECT * FROM detective_cases ORDER BY id').all();
+  const access = getUserAccess(req.user && req.user.id);
+  const accessible = rows.filter(r => canSeeCase(access, r.id));
+  res.json(accessible.map(r => ({
+    level: r.level,
+    story: r.story,
+    choices: JSON.parse(r.choices),
+    answer: r.answer
+  })));
+});
 
-    // ===== التصويت =====
-    socket.on('cast_vote', ({ roomCode, suspectId }) => {
-      const room = rooms[roomCode];
-      if (!room || room.state !== 'voting') return;
-      room.votes[socket.user.id] = suspectId;
+// قائمة كل القضايا مع حالة القفل (لواجهة المتجر: فتح قضية واحدة)
+app.get('/api/detective-cases-status', optionalAuth, (req, res) => {
+  const rows = db.prepare('SELECT id, level FROM detective_cases ORDER BY id').all();
+  const access = getUserAccess(req.user && req.user.id);
+  res.json(rows.map(r => ({ id: r.id, level: r.level, unlocked: canSeeCase(access, r.id) })));
+});
 
-      io.to(roomCode).emit('vote_progress', { votedCount: Object.keys(room.votes).length, total: room.players.length });
+// ===== Socket.io مع نفس إعدادات CORS =====
+const io = new Server(server, {
+  cors: { origin: allowedOrigin }
+});
+setupGameSockets(io);
+setupLettersGameSockets(io);
 
-      if (Object.keys(room.votes).length === room.players.length) {
-        const tally = {};
-        Object.values(room.votes).forEach(id => { tally[id] = (tally[id] || 0) + 1; });
-        let maxVotes = -1, accusedId = null;
-        for (const [id, count] of Object.entries(tally)) {
-          if (count > maxVotes) { maxVotes = count; accusedId = id; }
-        }
-        const spyCaught = String(accusedId) === String(room.spyId);
-        room.state = 'results';
-
-        io.to(roomCode).emit('game_results', {
-          tally,
-          accusedId,
-          spyId: room.spyId,
-          spyCaught,
-          word: room.word,
-          category: room.categoryName
-        });
-      }
-    });
-
-    // ===== إعادة تشغيل جولة جديدة بنفس الغرفة =====
-    socket.on('play_again', ({ roomCode }) => {
-      const room = rooms[roomCode];
-      if (!room) return;
-      if (room.hostId !== socket.user.id) return;
-      room.state = 'lobby';
-      room.categoryName = null;
-      room.word = null;
-      room.spyId = null;
-      room.votes = {};
-      io.to(roomCode).emit('room_update', publicRoomState(room));
-    });
-
-    // ===== قائمة الفئات المتاحة =====
-    socket.on('get_categories', () => {
-      socket.emit('categories_list', Object.keys(categories));
-    });
-
-    // ===== مغادرة/قطع الاتصال =====
-    socket.on('disconnect', () => {
-      for (const code of Object.keys(rooms)) {
-        const room = rooms[code];
-        const before = room.players.length;
-        room.players = room.players.filter(p => p.socketId !== socket.id);
-        if (room.players.length === 0) {
-          delete rooms[code];
-        } else if (room.players.length !== before) {
-          if (room.hostId === socket.user.id && room.players.length > 0) {
-            room.hostId = room.players[0].id; // نقل الاستضافة لأول لاعب متبقي
-          }
-          io.to(code).emit('room_update', publicRoomState(room));
-        }
-      }
-    });
-  });
-}
-
-module.exports = setupGameSockets;
+// استضافات مثل Render تحدد رقم المنفذ تلقائياً عبر متغير PORT، لا تغيّره يدوياً هناك
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`✅ السيرفر يشتغل على http://localhost:${PORT}`);
+});

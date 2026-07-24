@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const { requireAuth } = require('../utils/authMiddleware');
 const { ensureWallet, getSubscription, getUserAccess, nowSeconds } = require('../utils/entitlements');
-const { COIN_PACKAGES, PRICES, SUBSCRIPTION, findPackage } = require('../data/shop-config');
+const { COIN_PACKAGES, PRICES, SUBSCRIPTION, findPackage, findCoupon, calcDiscount } = require('../data/shop-config');
 const { createInvoice, getInvoice } = require('../utils/moyasar');
 
 const router = express.Router();
@@ -40,40 +40,80 @@ router.get('/wallet', requireAuth, (req, res) => {
   });
 });
 
-// ===== بدء عملية دفع حقيقية عبر Moyasar =====
-// body: { kind: 'coins', packageId } أو { kind: 'subscription' }
+// ===== يتحقق من كود خصم قبل الدفع (يستخدمه الفرونت إند وهو يعرض السلة) =====
+router.post('/validate-coupon', requireAuth, (req, res) => {
+  const { code } = req.body || {};
+  const coupon = findCoupon(code);
+  if (!coupon) return res.status(404).json({ error: 'كود الخصم غير صحيح أو منتهي' });
+  res.json({ code: coupon.code, type: coupon.type, value: coupon.value, label: coupon.label });
+});
+
+// ===== بدء عملية دفع حقيقية عبر Moyasar لسلة كاملة (باقة أو أكثر + اشتراك اختياري) =====
+// body: { items: [{ kind: 'coins', packageId } | { kind: 'subscription' }], couponCode? }
 router.post('/checkout', requireAuth, checkoutLimiter, async (req, res) => {
-  const { kind } = req.body || {};
+  const { items, couponCode } = req.body || {};
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'السلة فارغة، أضف عنصر واحد على الأقل' });
+  }
+  if (items.length > 10) {
+    return res.status(400).json({ error: 'عدد العناصر بالسلة كبير زيادة' });
+  }
 
   try {
-    let amountSAR, description, reference;
+    let subtotalSAR = 0;
+    const normalizedItems = [];
+    const descriptions = [];
 
-    if (kind === 'coins') {
-      const pkg = findPackage(req.body.packageId);
-      if (!pkg) return res.status(400).json({ error: 'باقة كوينز غير صحيحة' });
-      amountSAR = pkg.priceSAR;
-      description = `شحن ${pkg.coins} كوين - لمّة`;
-      reference = pkg.id;
-    } else if (kind === 'subscription') {
-      amountSAR = SUBSCRIPTION.priceSAR;
-      description = 'اشتراك لمّة بلس (شهري)';
-      reference = SUBSCRIPTION.id;
-    } else {
-      return res.status(400).json({ error: 'نوع عملية غير صحيح' });
+    for (const raw of items) {
+      const kind = raw && raw.kind;
+      if (kind === 'coins') {
+        const pkg = findPackage(raw.packageId);
+        if (!pkg) return res.status(400).json({ error: 'باقة كوينز غير صحيحة' });
+        subtotalSAR += pkg.priceSAR;
+        normalizedItems.push({ kind: 'coins', packageId: pkg.id });
+        descriptions.push(`${pkg.coins} كوين`);
+      } else if (kind === 'subscription') {
+        subtotalSAR += SUBSCRIPTION.priceSAR;
+        normalizedItems.push({ kind: 'subscription' });
+        descriptions.push('اشتراك لمّة بلس');
+      } else {
+        return res.status(400).json({ error: 'عنصر غير صحيح بالسلة' });
+      }
     }
+
+    let discountSAR = 0;
+    let appliedCouponCode = null;
+    if (couponCode) {
+      const coupon = findCoupon(couponCode);
+      if (!coupon) return res.status(400).json({ error: 'كود الخصم غير صحيح' });
+      discountSAR = calcDiscount(coupon, subtotalSAR);
+      appliedCouponCode = coupon.code;
+    }
+
+    // مويسر يحتاج مبلغ أكبر من صفر
+    const totalSAR = Math.max(subtotalSAR - discountSAR, 0.5);
+    const description = `${descriptions.join(' + ')} - لمّة`;
 
     const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
     const invoice = await createInvoice({
-      amountSAR,
+      amountSAR: totalSAR,
       description,
       callbackUrl: `${baseUrl}/api/shop/webhook`,
       successUrl: `${baseUrl}/?shop=success`
     });
 
     db.prepare(`
-      INSERT INTO payments (user_id, moyasar_invoice_id, kind, reference, amount_halalas, status)
-      VALUES (?, ?, ?, ?, ?, 'initiated')
-    `).run(req.user.id, invoice.id, kind, reference, Math.round(amountSAR * 100));
+      INSERT INTO payments (user_id, moyasar_invoice_id, kind, reference, amount_halalas, cart_items, coupon_code, discount_halalas, status)
+      VALUES (?, ?, 'cart', NULL, ?, ?, ?, ?, 'initiated')
+    `).run(
+      req.user.id,
+      invoice.id,
+      Math.round(totalSAR * 100),
+      JSON.stringify(normalizedItems),
+      appliedCouponCode,
+      Math.round(discountSAR * 100)
+    );
 
     res.json({ url: invoice.url, invoiceId: invoice.id });
   } catch (err) {
@@ -142,7 +182,18 @@ async function fulfillInvoiceIfPaid(invoiceId) {
 
   db.prepare(`UPDATE payments SET status = 'paid', updated_at = strftime('%s','now') WHERE id = ?`).run(row.id);
 
-  if (row.kind === 'coins') {
+  if (row.kind === 'cart') {
+    let items = [];
+    try { items = JSON.parse(row.cart_items || '[]'); } catch (e) { items = []; }
+    for (const item of items) {
+      if (item.kind === 'coins') {
+        const pkg = findPackage(item.packageId);
+        if (pkg) creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
+      } else if (item.kind === 'subscription') {
+        activateSubscription(row.user_id);
+      }
+    }
+  } else if (row.kind === 'coins') {
     const pkg = findPackage(row.reference);
     if (pkg) creditCoins(row.user_id, pkg.coins, 'purchase', `invoice:${row.moyasar_invoice_id}`);
   } else if (row.kind === 'subscription') {

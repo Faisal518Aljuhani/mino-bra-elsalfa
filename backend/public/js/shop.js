@@ -2,6 +2,8 @@
 
 let shopConfig = null; // { coinPackages, prices, subscription }
 window.shopAccess = null; // آخر نسخة من صلاحيات المستخدم (تستخدمها ملفات ثانية زي mafia.js)
+let cart = [];          // [{ type: 'coins', packageId, priceSAR, label } | { type: 'subscription', priceSAR, label }]
+let appliedCoupon = null; // { code, type, value, label } آخر كوبون اتحقق منه بنجاح
 
 async function apiGet(url) {
   const headers = {};
@@ -102,6 +104,7 @@ async function renderShop() {
     renderUnlockList('shop-cases-list', caseStatus, 'case', shopConfig.prices.case_single, c => `قضية مستوى ${c.level} #${c.id}`);
     renderAllButtons(wallet);
     renderExtraButtons(wallet);
+    renderCart();
   } catch (e) {
     $('shop-message').innerHTML = `<div class="error-box">${e.message}</div>`;
   }
@@ -127,9 +130,9 @@ function renderPackages() {
     card.innerHTML = `
       <div class="shop-card-title">${pkg.coins} 🪙</div>
       <div class="shop-card-note">${pkg.label}</div>
-      <button class="btn-primary shop-buy-btn">${pkg.priceSAR} ريال</button>
+      <button class="btn-primary shop-buy-btn">أضف للسلة — ${pkg.priceSAR} ريال</button>
     `;
-    card.querySelector('button').addEventListener('click', () => startCheckout('coins', pkg.id));
+    card.querySelector('button').addEventListener('click', () => addToCart('coins', pkg.id));
     wrap.appendChild(card);
   });
 }
@@ -141,13 +144,14 @@ function renderSubscriptionCard(wallet) {
   const card = document.createElement('div');
   card.className = 'shop-card shop-card-wide';
   const already = wallet && wallet.subscriptionActive;
+  const inCart = cart.some(i => i.type === 'subscription');
   card.innerHTML = `
     <div class="shop-card-title">${sub.label}</div>
     <div class="shop-card-note">كل الفئات + كل القضايا + المافيا + بدون إعلانات + ${sub.monthlyGiftCoins} كوين هدية كل شهر</div>
-    <button class="btn-primary shop-buy-btn" ${already ? 'disabled' : ''}>${already ? 'مفعّل حالياً ✅' : sub.priceSAR + ' ريال / شهرياً'}</button>
+    <button class="btn-primary shop-buy-btn" ${already || inCart ? 'disabled' : ''}>${already ? 'مفعّل حالياً ✅' : inCart ? 'بالسلة ✅' : 'أضف للسلة — ' + sub.priceSAR + ' ريال / شهرياً'}</button>
   `;
-  if (!already) {
-    card.querySelector('button').addEventListener('click', () => startCheckout('subscription'));
+  if (!already && !inCart) {
+    card.querySelector('button').addEventListener('click', () => addToCart('subscription'));
   }
   wrap.appendChild(card);
 }
@@ -212,16 +216,109 @@ async function unlockItem(itemType, itemId) {
   }
 }
 
-async function startCheckout(kind, packageId) {
+// ===================== إدارة السلة =====================
+function addToCart(type, packageId) {
+  if (type === 'subscription') {
+    if (cart.some(i => i.type === 'subscription')) return; // موجود بالسلة مسبقاً
+    cart.push({ type: 'subscription', priceSAR: shopConfig.subscription.priceSAR, label: shopConfig.subscription.label });
+  } else if (type === 'coins') {
+    const pkg = shopConfig.coinPackages.find(p => p.id === packageId);
+    if (!pkg) return;
+    cart.push({ type: 'coins', packageId: pkg.id, priceSAR: pkg.priceSAR, label: `${pkg.coins} 🪙 — ${pkg.label}` });
+  }
+  renderSubscriptionCard(window.shopAccess);
+  renderCart();
+}
+
+function removeFromCart(index) {
+  cart.splice(index, 1);
+  renderSubscriptionCard(window.shopAccess);
+  renderCart();
+}
+
+function cartSubtotal() {
+  return cart.reduce((sum, i) => sum + i.priceSAR, 0);
+}
+
+function cartDiscount() {
+  if (!appliedCoupon) return 0;
+  const subtotal = cartSubtotal();
+  const raw = appliedCoupon.type === 'percent' ? (subtotal * appliedCoupon.value / 100) : appliedCoupon.value;
+  return Math.min(Math.max(raw, 0), subtotal);
+}
+
+function renderCart() {
+  const bar = $('shop-cart-bar');
+  const list = $('shop-cart-items');
+  list.innerHTML = '';
+
+  if (cart.length === 0) {
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+
+  cart.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'shop-cart-row';
+    row.innerHTML = `
+      <span>${item.label}</span>
+      <span>${item.priceSAR} ريال</span>
+      <button type="button" class="shop-cart-remove">✕</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => removeFromCart(i));
+    list.appendChild(row);
+  });
+
+  const subtotal = cartSubtotal();
+  const discount = cartDiscount();
+  const total = Math.max(subtotal - discount, 0.5);
+
+  const discountLine = $('shop-cart-discount-line');
+  if (discount > 0) {
+    discountLine.classList.remove('hidden');
+    discountLine.textContent = `خصم الكوبون (${appliedCoupon.label}): -${discount.toFixed(2)} ريال`;
+  } else {
+    discountLine.classList.add('hidden');
+  }
+
+  $('shop-cart-total-amount').textContent = total.toFixed(2);
+}
+
+document.getElementById('btn-shop-apply-coupon').addEventListener('click', async () => {
+  const input = document.getElementById('shop-coupon-input');
+  const code = input.value.trim();
+  const msgEl = document.getElementById('shop-coupon-message');
+  msgEl.innerHTML = '';
+  if (!code) return;
+
+  try {
+    const coupon = await apiPost('/api/shop/validate-coupon', { code });
+    appliedCoupon = coupon;
+    msgEl.innerHTML = `<span style="color:var(--green);">تم تطبيق كود الخصم: ${coupon.label} ✅</span>`;
+    renderCart();
+  } catch (e) {
+    appliedCoupon = null;
+    msgEl.innerHTML = `<span style="color:var(--red);">${e.message}</span>`;
+    renderCart();
+  }
+});
+
+document.getElementById('btn-shop-checkout-cart').addEventListener('click', async () => {
+  if (cart.length === 0) return;
   $('shop-message').innerHTML = `<div class="center-note">يتم تجهيز صفحة الدفع...</div>`;
   try {
-    const { url, invoiceId } = await apiPost('/api/shop/checkout', { kind, packageId });
+    const items = cart.map(i => i.type === 'coins' ? { kind: 'coins', packageId: i.packageId } : { kind: 'subscription' });
+    const body = { items };
+    if (appliedCoupon) body.couponCode = appliedCoupon.code;
+
+    const { url, invoiceId } = await apiPost('/api/shop/checkout', body);
     if (invoiceId) sessionStorage.setItem('lamma_pending_invoice', invoiceId);
     location.href = url; // تحويل المستخدم لصفحة الدفع المستضافة عند Moyasar
   } catch (e) {
     $('shop-message').innerHTML = `<div class="error-box">${e.message}</div>`;
   }
-}
+});
 
 document.getElementById('btn-shop-back-home').addEventListener('click', () => {
   hide('view-shop');

@@ -607,6 +607,23 @@
         <div id="shop-message"></div>
       </div>
 
+      <div id="shop-cart-bar" class="shop-cart-bar hidden">
+        <h3 class="shop-section-title">🛒 السلة</h3>
+        <div id="shop-cart-items" class="shop-cart-items"></div>
+        <div class="shop-cart-coupon-row">
+          <input type="text" id="shop-coupon-input" placeholder="كود الخصم (اختياري)">
+          <button type="button" class="btn-ghost" id="btn-shop-apply-coupon">تطبيق</button>
+        </div>
+        <div id="shop-coupon-message" class="shop-coupon-message"></div>
+        <div id="shop-cart-discount-line" class="shop-cart-discount hidden"></div>
+        <div class="shop-cart-total-row">
+          <span>الإجمالي:</span>
+          <strong id="shop-cart-total-amount">0</strong>
+          <span>ريال</span>
+        </div>
+        <button type="button" class="btn-primary" id="btn-shop-checkout-cart">إتمام الدفع</button>
+      </div>
+
       <button class="btn-ghost" id="btn-shop-back-home">الرجوع للرئيسية</button>
     </div>
   </div>
