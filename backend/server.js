@@ -56,7 +56,7 @@ app.get('/api/categories', optionalAuth, async (req, res) => {
   const byCategory = {};
   for (const w of words) (byCategory[w.category_id] ||= []).push(w.word);
 
-  const access = getUserAccess(req.user && req.user.id);
+  const access = await getUserAccess(req.user && req.user.id);
   const result = {};
   for (const c of cats) {
     if (!canSeeCategory(access, c)) continue;
@@ -68,7 +68,7 @@ app.get('/api/categories', optionalAuth, async (req, res) => {
 // قائمة كل الفئات مع حالة القفل (مستخدمة بواجهة المتجر لعرض "فتح فئة واحدة")
 app.get('/api/categories-status', optionalAuth, async (req, res) => {
   const cats = await db.prepare('SELECT * FROM categories ORDER BY sort_order, id').all();
-  const access = getUserAccess(req.user && req.user.id);
+  const access = await getUserAccess(req.user && req.user.id);
   res.json(cats.map(c => ({ id: c.id, name: c.name, unlocked: canSeeCategory(access, c) })));
 });
 
@@ -95,7 +95,7 @@ app.get('/api/letters-categories', async (req, res) => {
 // لعبة "قصة جنائية" — كل القضايا مدفوعة (فردياً أو دفعة وحدة أو باشتراك لمّة بلس)
 app.get('/api/detective-cases', optionalAuth, async (req, res) => {
   const rows = await db.prepare('SELECT * FROM detective_cases ORDER BY id').all();
-  const access = getUserAccess(req.user && req.user.id);
+  const access = await getUserAccess(req.user && req.user.id);
   const accessible = rows.filter(r => canSeeCase(access, r.id));
   res.json(accessible.map(r => ({
     level: r.level,
@@ -108,7 +108,7 @@ app.get('/api/detective-cases', optionalAuth, async (req, res) => {
 // قائمة كل القضايا مع حالة القفل (لواجهة المتجر: فتح قضية واحدة)
 app.get('/api/detective-cases-status', optionalAuth, async (req, res) => {
   const rows = await db.prepare('SELECT id, level FROM detective_cases ORDER BY id').all();
-  const access = getUserAccess(req.user && req.user.id);
+  const access = await getUserAccess(req.user && req.user.id);
   res.json(rows.map(r => ({ id: r.id, level: r.level, unlocked: canSeeCase(access, r.id) })));
 });
 
